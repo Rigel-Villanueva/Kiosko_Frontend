@@ -1,0 +1,6 @@
+@KioskoAPI_HostAddress = http://localhost:5160
+
+GET {{KioskoAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
