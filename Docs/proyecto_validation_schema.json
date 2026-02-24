@@ -1,54 +1,54 @@
 {
-  $jsonSchema: {
-    bsonType: 'object',
-    required: [
-      '_id',
-      'autores',
-      'descripcion',
-      'estatus',
-      'evaluaciones_docentes',
-      'evidencias',
-      'nombre',
-      'promedio_general'
-        ],
-    properties: {
-      _id: {
-        bsonType: 'objectId'
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": [
+      "_id",
+      "autores",
+      "descripcion",
+      "estatus",
+      "evaluaciones_docentes",
+      "evidencias",
+      "nombre",
+      "promedio_general"
+    ],
+    "properties": {
+      "_id": {
+        "bsonType": "objectId"
+      },
+      "nombre": {
+        "bsonType": "string"
+      },
+      "promedio_general": {
+        "bsonType": "double"
+      },
+      "evaluaciones_docentes": {
+        "bsonType": "array",
+        "items": {
+          "bsonType": "object",
+          "properties": {
+            "promedio_por_maestro": {
+              "bsonType": "double"
             },
-      nombre: {
-        bsonType: 'string'
-            },
-      promedio_general: {
-        bsonType: 'double'
-            },
-      evaluaciones_docentes: {
-        bsonType: 'array',
-        items: {
-          bsonType: 'object',
-          properties: {
-            promedio_por_maestro: {
-              bsonType: 'double'
-                        },
-            rubrica: {
-              bsonType: 'array',
-              items: {
-                bsonType: 'object',
-                properties: {
-                  criterio: {
-                    bsonType: 'string'
-                                    },
-                  obtenido: {
-                    bsonType: 'double'
-                                    },
-                  puntos_max: {
-                    bsonType: 'double'
-                                    }
-                                }
-                            }
-                        }
-                    }
+            "rubrica": {
+              "bsonType": "array",
+              "items": {
+                "bsonType": "object",
+                "properties": {
+                  "criterio": {
+                    "bsonType": "string"
+                  },
+                  "obtenido": {
+                    "bsonType": "double"
+                  },
+                  "puntos_max": {
+                    "bsonType": "double"
+                  }
                 }
+              }
             }
+          }
         }
+      }
     }
+  }
 }
