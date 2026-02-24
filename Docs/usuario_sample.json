@@ -1,0 +1,11 @@
+{
+    "_id": {
+        "$oid": "698c8626169b58d2d15237dc"
+    },
+    "nombre": "Ing. Jorge Robles",
+    "correo": "jorge.robles@universidad.edu",
+    "rol": "docente",
+    "verificado": true,
+    "proyectos_por_calificar": [],
+    "password": "contraseña_encriptada"
+}
