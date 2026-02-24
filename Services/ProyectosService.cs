@@ -10,16 +10,7 @@ namespace KioskoAPI.Services
 
         public ProyectosService(IOptions<KioskoDatabaseSettings> kioskoDatabaseSettings)
         {
-            var settings = MongoClientSettings.FromConnectionString(kioskoDatabaseSettings.Value.ConnectionString);
-            
-            // Bypass local SSL certificate validation to fix Win32Exception (0x80090304) locally
-            settings.ServerApi = new ServerApi(ServerApiVersion.V1);
-            settings.SslSettings = new SslSettings
-            {
-                ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true
-            };
-
-            var mongoClient = new MongoClient(settings);
+            var mongoClient = new MongoClient(kioskoDatabaseSettings.Value.ConnectionString);
             var mongoDatabase = mongoClient.GetDatabase(kioskoDatabaseSettings.Value.DatabaseName);
             _proyectosCollection = mongoDatabase.GetCollection<Proyecto>(kioskoDatabaseSettings.Value.ProjectsCollectionName);
         }
