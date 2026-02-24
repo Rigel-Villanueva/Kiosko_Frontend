@@ -1,16 +1,14 @@
 using KioskoAPI.Models;
+using KioskoAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// LA LÍNEA VA AQUÍ (Después del builder)
+// Configure MongoDB options
 builder.Services.Configure<KioskoDatabaseSettings>(
     builder.Configuration.GetSection("KioskoDatabase"));
 
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
-
-
-// Add services to the container.
+// Register Services
+builder.Services.AddSingleton<ProyectosService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

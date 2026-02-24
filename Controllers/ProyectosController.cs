@@ -1,7 +1,6 @@
 using KioskoAPI.Models;
+using KioskoAPI.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using MongoDB.Driver;
 
 namespace KioskoAPI.Controllers
 {
@@ -9,17 +8,28 @@ namespace KioskoAPI.Controllers
     [Route("api/[controller]")]
     public class ProyectosController : ControllerBase
     {
-        private readonly IMongoCollection<Proyecto> _proyectosCollection;
+        private readonly ProyectosService _proyectosService;
 
-        public ProyectosController(IOptions<KioskoDatabaseSettings> settings)
+        public ProyectosController(ProyectosService proyectosService)
         {
-            var mongoClient = new MongoClient(settings.Value.ConnectionString);
-            var mongoDatabase = mongoClient.GetDatabase(settings.Value.DatabaseName);
-            _proyectosCollection = mongoDatabase.GetCollection<Proyecto>(settings.Value.CollectionName);
+            _proyectosService = proyectosService;
         }
 
         [HttpGet]
         public async Task<List<Proyecto>> Get() =>
-            await _proyectosCollection.Find(_ => true).ToListAsync();
+            await _proyectosService.GetAsync();
+
+        [HttpGet("{id:length(24)}")]
+        public async Task<ActionResult<Proyecto>> Get(string id)
+        {
+            var proyecto = await _proyectosService.GetAsync(id);
+
+            if (proyecto is null)
+            {
+                return NotFound();
+            }
+
+            return proyecto;
+        }
     }
 }

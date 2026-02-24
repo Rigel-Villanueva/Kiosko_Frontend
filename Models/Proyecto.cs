@@ -13,9 +13,6 @@ namespace KioskoAPI.Models
         [BsonElement("nombre")]
         public string Nombre { get; set; } = null!;
 
-        [BsonElement("tipo_app")]
-        public string TipoApp { get; set; } = null!;
-
         [BsonElement("descripcion")]
         public string Descripcion { get; set; } = null!;
 
@@ -25,42 +22,38 @@ namespace KioskoAPI.Models
         [BsonElement("estatus")]
         public string Estatus { get; set; } = null!;
 
-        [BsonElement("calificacion_promedio")]
-        public double Calificacion { get; set; }
+        [BsonElement("promedio_general")]
+        public double PromedioGeneral { get; set; }
 
-        [BsonElement("criterios_evaluacion")]
-        public List<Criterio> Criterios { get; set; } = new();
+        [BsonElement("evidencias")]
+        public Evidencias? Evidencias { get; set; }
 
-        [BsonElement("recursos_multimedia")]
-        public List<Recurso> Recursos { get; set; } = new();
-        
-        [BsonElement("repositorio_codigo")]
-        public Repositorio Codigo { get; set; } = new();
-
-        [BsonElement("reseñas")]
-        public List<Reseña> Reseñas { get; set; } = new();
+        [BsonElement("evaluaciones_docentes")]
+        public List<EvaluacionDocente> EvaluacionesDocentes { get; set; } = new();
     }
 
     [BsonIgnoreExtraElements]
-    public class Criterio {
-        [BsonElement("aspecto")]
-        public string Aspecto { get; set; } = null!;
+    public class Evidencias
+    {
+        [BsonElement("repositorio_git")]
+        public string? RepositorioGit { get; set; }
 
-        [BsonElement("puntaje_max")]
-        public double PuntajeMax { get; set; }
+        [BsonElement("videos")]
+        public List<Video> Videos { get; set; } = new();
 
-        [BsonElement("obtenido")]
-        public double Obtenido { get; set; }
+        [BsonElement("imagenes")]
+        public List<string> Imagenes { get; set; } = new();
 
-        [BsonElement("comentario")]
-        public string Comentario { get; set; } = "";
+        [BsonElement("documentos_pdf")]
+        public List<string> DocumentosPdf { get; set; } = new();
+
+        [BsonElement("diapositivas")]
+        public string? Diapositivas { get; set; }
     }
 
     [BsonIgnoreExtraElements]
-    public class Recurso {
-        [BsonElement("tipo")]
-        public string Tipo { get; set; } = null!;
-
+    public class Video
+    {
         [BsonElement("titulo")]
         public string Titulo { get; set; } = null!;
 
@@ -69,29 +62,40 @@ namespace KioskoAPI.Models
     }
 
     [BsonIgnoreExtraElements]
-    public class Repositorio {
-        [BsonElement("plataforma")]
-        public string Plataforma { get; set; } = null!;
+    public class EvaluacionDocente
+    {
+        [BsonElement("maestro_id")]
+        public string MaestroId { get; set; } = null!;
 
-        [BsonElement("url")]
-        public string Url { get; set; } = null!;
+        [BsonElement("nombre_maestro")]
+        public string NombreMaestro { get; set; } = null!;
 
-        [BsonElement("lenguajes")]
-        public List<string> Lenguajes { get; set; } = new();
+        [BsonElement("fecha_evaluacion")]
+        public DateTime? FechaEvaluacion { get; set; }
 
-        [BsonElement("frameworks")]
-        public List<string> Frameworks { get; set; } = new();
+        [BsonElement("promedio_por_maestro")]
+        public double PromedioPorMaestro { get; set; }
+
+        [BsonElement("retroalimentacion_final")]
+        public string? RetroalimentacionFinal { get; set; }
+
+        [BsonElement("rubrica")]
+        public List<CriterioRubrica> Rubrica { get; set; } = new();
     }
 
     [BsonIgnoreExtraElements]
-    public class Reseña {
-        [BsonElement("usuario")]
-        public string Usuario { get; set; } = null!;
+    public class CriterioRubrica
+    {
+        [BsonElement("criterio")]
+        public string Criterio { get; set; } = null!;
 
-        [BsonElement("comentario")]
-        public string Comentario { get; set; } = null!;
+        [BsonElement("puntos_max")]
+        public double PuntosMax { get; set; }
 
-        [BsonElement("estrellas")]
-        public int Estrellas { get; set; }
+        [BsonElement("obtenido")]
+        public double Obtenido { get; set; }
+
+        [BsonElement("obs")]
+        public string? Obs { get; set; }
     }
 }
