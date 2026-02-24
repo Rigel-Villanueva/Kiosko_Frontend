@@ -14,10 +14,12 @@ namespace KioskoAPI.Services
             var settings = MongoClientSettings.FromUrl(mongoUrl);
 
             // Evitar validación estricta SSL de Windows local
+            settings.AllowInsecureTls = true;
             settings.SslSettings = new SslSettings
             {
                 ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true,
-                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12
+                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12,
+                CheckCertificateRevocation = false
             };
 
             var mongoClient = new MongoClient(settings);
