@@ -10,19 +10,7 @@ namespace KioskoAPI.Services
 
         public ProyectosService(IOptions<KioskoDatabaseSettings> kioskoDatabaseSettings)
         {
-            var mongoUrl = new MongoUrl(kioskoDatabaseSettings.Value.ConnectionString);
-            var settings = MongoClientSettings.FromUrl(mongoUrl);
-
-            // Evitar validación estricta SSL de Windows local
-            settings.AllowInsecureTls = true;
-            settings.SslSettings = new SslSettings
-            {
-                ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true,
-                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12,
-                CheckCertificateRevocation = false
-            };
-
-            var mongoClient = new MongoClient(settings);
+            var mongoClient = new MongoClient(kioskoDatabaseSettings.Value.ConnectionString);
             var mongoDatabase = mongoClient.GetDatabase(kioskoDatabaseSettings.Value.DatabaseName);
             _proyectosCollection = mongoDatabase.GetCollection<Proyecto>(kioskoDatabaseSettings.Value.ProjectsCollectionName);
         }
