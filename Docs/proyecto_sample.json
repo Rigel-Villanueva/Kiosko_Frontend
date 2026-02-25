@@ -4,11 +4,15 @@
     },
     "nombre": "SubLegados Tours",
     "descripcion": "Plataforma turística inteligente con mapas interactivos y gestión multimedia.",
-    "autores": [
-        "Rigel",
-        "Integrante 2"
+    "subido_por": "698c8626169b58d2d15237de",
+    "fecha_creacion": {
+        "$date": "2026-02-24T10:00:00.000Z"
+    },
+    "autores_correos": [
+        "rigel@alumno.edu",
+        "juan@alumno.edu"
     ],
-    "estatus": "Evaluado",
+    "estatus": "aprobado",
     "promedio_general": 93.5,
     "evidencias": {
         "repositorio_git": "https://github.com/rigel/sublegados-tours",

@@ -27,7 +27,13 @@
                 "bsonType": "array"
             },
             "rol": {
-                "bsonType": "string"
+                "bsonType": "string",
+                "enum": [
+                    "estudiante",
+                    "maestro",
+                    "admin"
+                ],
+                "description": "Debe ser 'estudiante', 'maestro' o 'admin'"
             },
             "verificado": {
                 "bsonType": "bool"

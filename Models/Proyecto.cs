@@ -16,14 +16,21 @@ namespace KioskoAPI.Models
         [BsonElement("descripcion")]
         public string Descripcion { get; set; } = null!;
 
-        [BsonElement("autores")]
-        public List<string> Autores { get; set; } = new();
+        [BsonElement("subido_por")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string SubidoPor { get; set; } = null!;
+
+        [BsonElement("fecha_creacion")]
+        public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("autores_correos")]
+        public List<string> AutoresCorreos { get; set; } = new();
 
         [BsonElement("estatus")]
-        public string Estatus { get; set; } = null!;
+        public string Estatus { get; set; } = "pendiente"; // "pendiente", "aprobado", "rechazado", "evaluado"
 
         [BsonElement("promedio_general")]
-        public double PromedioGeneral { get; set; }
+        public double PromedioGeneral { get; set; } = 0;
 
         [BsonElement("evidencias")]
         public Evidencias? Evidencias { get; set; }
