@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Http;
 
 namespace KioskoAPI.Controllers
 {
+    /// <summary>
+    /// Manejador de Archivos: Permite la carga de evidencias físicas (Fotos, PDFs, Word, PPT) hacia Supabase Storage.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class UploadsController : ControllerBase
@@ -16,7 +19,11 @@ namespace KioskoAPI.Controllers
             _storageService = storageService;
         }
 
-        // POST: api/Uploads
+        /// <summary>
+        /// Sube un archivo real a la nube (Supabase Storage).
+        /// </summary>
+        /// <param name="requestFile">El archivo físico subido a través de multipart/form-data</param>
+        /// <returns>La URL pública lista para ser adjuntada al JSON del Proyecto</returns>
         [HttpPost]
         [Authorize(Roles = "estudiante")] // Solo los estudiantes deberían estar subiendo archivos de proyecto
         public async Task<IActionResult> UploadFile(IFormFile requestFile)

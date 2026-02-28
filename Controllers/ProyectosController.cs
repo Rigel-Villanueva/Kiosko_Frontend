@@ -17,12 +17,27 @@ namespace KioskoAPI.Controllers
             _proyectosService = proyectosService;
         }
 
-        // GET: api/Proyectos (Público, solo aprobados)
+        /// <summary>
+        /// Obtiene la lista pública de proyectos (solo los aprobados o evaluados). Soporta filtrado y búsqueda.
+        /// </summary>
+        /// <param name="nombre">Opcional. Busca coincidencias en el título del proyecto.</param>
+        /// <param name="autor">Opcional. Busca por correo de algún autor.</param>
+        /// <param name="minCal">Opcional. Calificación general mínima (ej: 80).</param>
+        /// <param name="maxCal">Opcional. Calificación general máxima (ej: 100).</param>
+        /// <returns>Una lista de proyectos que cumplen con los filtros.</returns>
         [HttpGet]
-        public async Task<List<Proyecto>> GetAprobados() =>
-            await _proyectosService.GetAprobadosAsync();
+        public async Task<List<Proyecto>> GetAprobados(
+            [FromQuery] string? nombre = null,
+            [FromQuery] string? autor = null,
+            [FromQuery] double? minCal = null,
+            [FromQuery] double? maxCal = null)
+        {
+            return await _proyectosService.GetAprobadosAsync(nombre, autor, minCal, maxCal);
+        }
 
-        // GET: api/Proyectos/todos (Solo Admin)
+        /// <summary>
+        /// Solo Admin. Obtiene TODOS los proyectos, incluyendo los pendientes o rechazados.
+        /// </summary>
         [HttpGet("todos")]
         [Authorize(Roles = "admin")]
         public async Task<List<Proyecto>> GetAll() =>

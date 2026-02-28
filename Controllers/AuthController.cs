@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace KioskoAPI.Controllers
 {
+    /// <summary>
+    /// Autenticación: Endpoints para registrar cuentas y generar tokens de inicio de sesión JWT.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
@@ -15,6 +18,10 @@ namespace KioskoAPI.Controllers
             _authService = authService;
         }
 
+        /// <summary>
+        /// Crea una nueva cuenta de usuario (Estudiante, Maestro o Admin).
+        /// </summary>
+        /// <param name="nuevoUsuario">JSON con nombre, correo, password y rol</param>
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] Usuario nuevoUsuario)
         {
@@ -29,6 +36,9 @@ namespace KioskoAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Inicia sesión validando el correo y la contraseña. Retorna un Token JWT válido por 2 días.
+        /// </summary>
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {

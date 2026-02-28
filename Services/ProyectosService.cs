@@ -18,8 +18,36 @@ namespace KioskoAPI.Services
         public async Task<List<Proyecto>> GetAsync() =>
             await _proyectosCollection.Find(_ => true).ToListAsync();
 
-        public async Task<List<Proyecto>> GetAprobadosAsync() =>
-            await _proyectosCollection.Find(x => x.Estatus == "aprobado" || x.Estatus == "evaluado").ToListAsync();
+        public async Task<List<Proyecto>> GetAprobadosAsync(string? nombre = null, string? autor = null, double? minCal = null, double? maxCal = null)
+        {
+            var builder = Builders<Proyecto>.Filter;
+            // Solo traer proyectos aprobados o evaluados
+            var filter = builder.In(x => x.Estatus, new[] { "aprobado", "evaluado" });
+
+            if (!string.IsNullOrWhiteSpace(nombre))
+            {
+                // Búsqueda insensible a mayúsculas/minúsculas
+                filter &= builder.Regex(x => x.Nombre, new MongoDB.Bson.BsonRegularExpression(nombre, "i"));
+            }
+
+            if (!string.IsNullOrWhiteSpace(autor))
+            {
+                // Buscar coincidencia en el array de autores_correos
+                filter &= builder.Regex("autores_correos", new MongoDB.Bson.BsonRegularExpression(autor, "i"));
+            }
+
+            if (minCal.HasValue)
+            {
+                filter &= builder.Gte(x => x.PromedioGeneral, minCal.Value);
+            }
+
+            if (maxCal.HasValue)
+            {
+                filter &= builder.Lte(x => x.PromedioGeneral, maxCal.Value);
+            }
+
+            return await _proyectosCollection.Find(filter).ToListAsync();
+        }
 
         public async Task<List<Proyecto>> GetMisProyectosAsync(string correo) =>
             await _proyectosCollection.Find(x => x.AutoresCorreos.Contains(correo)).ToListAsync();
