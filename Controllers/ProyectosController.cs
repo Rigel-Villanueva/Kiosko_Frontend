@@ -144,5 +144,59 @@ namespace KioskoAPI.Controllers
 
             return NoContent();
         }
+
+        // PUT: api/Proyectos/{id}/evaluar (Solo Maestro evalúa)
+        [HttpPut("{id:length(24)}/evaluar")]
+        [Authorize(Roles = "maestro")]
+        public async Task<IActionResult> EvaluarProyecto(string id, [FromBody] EvaluacionDocente evaluacion)
+        {
+            var proyecto = await _proyectosService.GetAsync(id);
+            if (proyecto is null) return NotFound();
+
+            var maestroId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var nombreMaestro = User.FindFirst(ClaimTypes.Name)?.Value;
+            var verificadoClaim = User.FindFirst("Verificado")?.Value;
+
+            if (maestroId == null || nombreMaestro == null) return Unauthorized();
+            
+            // Verificar si el maestro está verificado por el admin
+            if (verificadoClaim != "True" && verificadoClaim != "true")
+            {
+                return Forbid(); // "No puedes evaluar si un admin no te ha verificado"
+            }
+
+            // Forzamos los datos del maestro desde el token por seguridad
+            evaluacion.MaestroId = maestroId;
+            evaluacion.NombreMaestro = nombreMaestro;
+            evaluacion.FechaEvaluacion = DateTime.UtcNow;
+
+            // Recalculamos el promedio que dio este maestro basado en la rúbrica (opcional, pero buena práctica)
+            evaluacion.PromedioPorMaestro = evaluacion.Rubrica.Count > 0 
+                ? evaluacion.Rubrica.Sum(r => r.Obtenido) / evaluacion.Rubrica.Count 
+                : 0;
+
+            // Buscar si este maestro ya había evaluado este proyecto antes para actualizar, o si es nueva
+            var index = proyecto.EvaluacionesDocentes.FindIndex(e => e.MaestroId == maestroId);
+            if (index != -1)
+            {
+                proyecto.EvaluacionesDocentes[index] = evaluacion;
+            }
+            else
+            {
+                proyecto.EvaluacionesDocentes.Add(evaluacion);
+            }
+
+            // Recalcular el promedio general del proyecto basado en TODOS los maestros que lo han evaluado
+            if (proyecto.EvaluacionesDocentes.Count > 0)
+            {
+                 proyecto.PromedioGeneral = proyecto.EvaluacionesDocentes.Average(e => e.PromedioPorMaestro);
+                 // Cambiamos el estatus a evaluado
+                 proyecto.Estatus = "evaluado";
+            }
+
+            await _proyectosService.UpdateAsync(id, proyecto);
+
+            return Ok(new { mensaje = "Evaluación enviada con éxito", promedioGeneral = proyecto.PromedioGeneral });
+        }
     }
 }
