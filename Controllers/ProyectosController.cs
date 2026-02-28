@@ -105,5 +105,44 @@ namespace KioskoAPI.Controllers
             await _proyectosService.RemoveAsync(id);
             return NoContent();
         }
+
+        // PUT: api/Proyectos/{id} (Actualizar detalles del proyecto)
+        [HttpPut("{id:length(24)}")]
+        [Authorize]
+        public async Task<IActionResult> Update(string id, [FromBody] Proyecto updatedProyecto)
+        {
+            var proyecto = await _proyectosService.GetAsync(id);
+            if (proyecto is null) return NotFound();
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            // Solo puede editar el admin o el creador del proyecto
+            if (userRole != "admin" && proyecto.SubidoPor != userId)
+            {
+                return Forbid();
+            }
+
+            // Mantenemos algunos datos críticos para que no los sobrescriban accidentalmente
+            updatedProyecto.Id = proyecto.Id;
+            updatedProyecto.SubidoPor = proyecto.SubidoPor;
+            updatedProyecto.FechaCreacion = proyecto.FechaCreacion;
+            
+            // Si lo edita el estudiante, lo devolvemos a estado pendiente (opcional, dependiendo de tu regla de negocio)
+            // Si no quieres requerir una re-aprobación, quita esta línea.
+            if (userRole != "admin")
+            {
+                updatedProyecto.Estatus = "pendiente";
+            }
+            else
+            {
+                // Si es admin, respetamos el estatus que haya mandado
+                updatedProyecto.Estatus = updatedProyecto.Estatus ?? proyecto.Estatus; 
+            }
+
+            await _proyectosService.UpdateAsync(id, updatedProyecto);
+
+            return NoContent();
+        }
     }
 }

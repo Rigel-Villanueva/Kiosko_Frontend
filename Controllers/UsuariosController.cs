@@ -69,5 +69,36 @@ namespace KioskoAPI.Controllers
              
              return Ok(new { mensaje = "Maestro verificado correctamente" });
         }
+
+        // PUT general: api/Usuarios/{id}
+        [HttpPut("{id:length(24)}")]
+        [Authorize] // Logueados
+        public async Task<IActionResult> Update(string id, [FromBody] Usuario updatedUsuario)
+        {
+            var usuario = await _usuariosService.GetAsync(id);
+            if (usuario is null) return NotFound();
+
+            var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var currentUserRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+            // Solo puedes editar si eres admin o si eres tú mismo
+            if (currentUserRole != "admin" && currentUserId != id)
+            {
+                return Forbid();
+            }
+
+            // Mantenemos datos críticos intactos si no vienen en la petición (opcional pero recomendado)
+            updatedUsuario.Id = usuario.Id; 
+            if (currentUserRole != "admin")
+            {
+                // Si no es admin, no puede cambiarse su propio rol o estado de verificado
+                updatedUsuario.Rol = usuario.Rol;
+                updatedUsuario.Verificado = usuario.Verificado;
+            }
+
+            await _usuariosService.UpdateAsync(id, updatedUsuario);
+
+            return NoContent();
+        }
     }
 }
