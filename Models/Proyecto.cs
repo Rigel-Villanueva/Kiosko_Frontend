@@ -71,10 +71,10 @@ namespace KioskoAPI.Models
     public class EvaluacionDocente
     {
         [BsonElement("maestro_id")]
-        public string MaestroId { get; set; } = null!;
+        public string? MaestroId { get; set; }
 
         [BsonElement("nombre_maestro")]
-        public string NombreMaestro { get; set; } = null!;
+        public string? NombreMaestro { get; set; }
 
         [BsonElement("fecha_evaluacion")]
         public DateTime? FechaEvaluacion { get; set; }
