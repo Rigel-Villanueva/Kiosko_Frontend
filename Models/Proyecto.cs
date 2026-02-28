@@ -17,7 +17,6 @@ namespace KioskoAPI.Models
         public string Descripcion { get; set; } = null!;
 
         [BsonElement("subido_por")]
-        [BsonRepresentation(BsonType.ObjectId)]
         public string? SubidoPor { get; set; }
 
         [BsonElement("fecha_creacion")]
