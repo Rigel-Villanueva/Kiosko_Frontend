@@ -170,10 +170,8 @@ namespace KioskoAPI.Controllers
             evaluacion.NombreMaestro = nombreMaestro;
             evaluacion.FechaEvaluacion = DateTime.UtcNow;
 
-            // Recalculamos el promedio que dio este maestro basado en la rúbrica (opcional, pero buena práctica)
-            evaluacion.PromedioPorMaestro = evaluacion.Rubrica.Count > 0 
-                ? evaluacion.Rubrica.Sum(r => r.Obtenido) / evaluacion.Rubrica.Count 
-                : 0;
+            // Recalculamos la calificación total que dio este maestro sumando los puntos obtenidos en la rúbrica
+            evaluacion.PromedioPorMaestro = evaluacion.Rubrica.Sum(r => r.Obtenido);
 
             // Buscar si este maestro ya había evaluado este proyecto antes para actualizar, o si es nueva
             var index = proyecto.EvaluacionesDocentes.FindIndex(e => e.MaestroId == maestroId);
