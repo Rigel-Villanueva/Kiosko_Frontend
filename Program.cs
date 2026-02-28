@@ -69,6 +69,8 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.UseDeveloperExceptionPage(); // 🔥 FORZAR VER ERRORES EN RENDER 🔥
+
 // Swagger habilitado en todos los entornos (producción incluida)
 app.UseSwagger();
 app.UseSwaggerUI();
