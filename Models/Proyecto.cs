@@ -18,7 +18,7 @@ namespace KioskoAPI.Models
 
         [BsonElement("subido_por")]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string SubidoPor { get; set; } = null!;
+        public string? SubidoPor { get; set; }
 
         [BsonElement("fecha_creacion")]
         public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
