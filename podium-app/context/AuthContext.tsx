@@ -154,11 +154,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                return { ok: false, error: data.error || "No se pudo crear la cuenta." };
+                return { ok: false, error: data.error || data.mensaje || "No se pudo crear la cuenta." };
             }
 
-            // Luego del registro hacemos login automático
-            return login(correo, password);
+            // Registro exitoso — el login se hace por separado
+            return { ok: true };
         } catch {
             return { ok: false, error: "Error de conexión con el servidor." };
         }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
     View,
     Text,
@@ -9,6 +9,9 @@ import {
     ActivityIndicator,
     RefreshControl,
     TextInput,
+    Modal,
+    Pressable,
+    Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -18,7 +21,11 @@ import {
     Search,
     Star,
     ClipboardList,
-    ChevronRight,
+    MoreVertical,
+    Eye,
+    AlertCircle,
+    ChevronDown,
+    X,
 } from "lucide-react-native";
 import { GradientHeader } from "@/components/GradientHeader";
 import { useApp } from "@/context/AppContext";
@@ -28,21 +35,98 @@ import { Project } from "@/lib/types";
 const ESTATUS_FILTERS = ["todos", "pendiente", "aprobado", "evaluado"] as const;
 type Filter = (typeof ESTATUS_FILTERS)[number];
 
-const ESTATUS_COLORS: Record<string, { bg: string; text: string }> = {
-    pendiente: { bg: "#FEF3C7", text: "#92400E" },
-    aprobado: { bg: "#D1FAE5", text: "#065F46" },
-    evaluado: { bg: "#EDE9FE", text: "#5B21B6" },
-    rechazado: { bg: "#FEE2E2", text: "#991B1B" },
+const ESTATUS_META: Record<string, { bg: string; text: string; label: string }> = {
+    pendiente: { bg: "#FEF3C7", text: "#92400E", label: "Pendiente" },
+    aprobado:  { bg: "#D1FAE5", text: "#065F46", label: "Aprobado"  },
+    evaluado:  { bg: "#EDE9FE", text: "#5B21B6", label: "Evaluado"  },
+    rechazado: { bg: "#FEE2E2", text: "#991B1B", label: "Rechazado" },
 };
 
 function EstatusBadge({ estatus }: { estatus: string }) {
-    const s = ESTATUS_COLORS[estatus] || { bg: "#F3F4F6", text: "#374151" };
+    const s = ESTATUS_META[estatus] || { bg: "#F3F4F6", text: "#374151", label: estatus };
     return (
         <View style={[styles.badge, { backgroundColor: s.bg }]}>
-            <Text style={[styles.badgeText, { color: s.text }]}>
-                {estatus.charAt(0).toUpperCase() + estatus.slice(1)}
-            </Text>
+            <Text style={[styles.badgeText, { color: s.text }]}>{s.label}</Text>
         </View>
+    );
+}
+
+interface ActionSheetProps {
+    visible: boolean;
+    project: Project | null;
+    onClose: () => void;
+    onAprobar: () => void;
+    onEliminar: () => void;
+    onVerDetalle: () => void;
+    loading: boolean;
+}
+
+function ActionSheet({ visible, project, onClose, onAprobar, onEliminar, onVerDetalle, loading }: ActionSheetProps) {
+    if (!project) return null;
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <Pressable style={styles.sheetOverlay} onPress={onClose}>
+                <Pressable style={styles.sheetContainer} onPress={() => {}}>
+                    {/* Handle */}
+                    <View style={styles.sheetHandle} />
+
+                    {/* Header del proyecto */}
+                    <View style={styles.sheetHeader}>
+                        <View style={{ flex: 1, gap: 4 }}>
+                            <Text style={styles.sheetTitle} numberOfLines={2}>{project.nombre}</Text>
+                            <Text style={styles.sheetSub} numberOfLines={1}>{project.autores_correos[0] || "Sin autor"}</Text>
+                        </View>
+                        <EstatusBadge estatus={project.estatus} />
+                    </View>
+
+                    <View style={styles.sheetDivider} />
+
+                    {/* Acciones */}
+                    {loading ? (
+                        <ActivityIndicator color={colors.primary} style={{ paddingVertical: 24 }} />
+                    ) : (
+                        <View style={styles.sheetActions}>
+                            <TouchableOpacity style={styles.sheetAction} onPress={onVerDetalle} activeOpacity={0.7}>
+                                <View style={[styles.sheetActionIcon, { backgroundColor: `${colors.primary}14` }]}>
+                                    <Eye size={20} color={colors.primary} />
+                                </View>
+                                <View style={styles.sheetActionText}>
+                                    <Text style={styles.sheetActionTitle}>Ver detalles</Text>
+                                    <Text style={styles.sheetActionSub}>Revisar evidencias y evaluaciones</Text>
+                                </View>
+                                <ChevronDown size={16} color={colors.mutedForeground} style={{ transform: [{ rotate: "-90deg" }] }} />
+                            </TouchableOpacity>
+
+                            {project.estatus === "pendiente" && (
+                                <TouchableOpacity style={styles.sheetAction} onPress={onAprobar} activeOpacity={0.7}>
+                                    <View style={[styles.sheetActionIcon, { backgroundColor: "#D1FAE5" }]}>
+                                        <CheckCircle size={20} color="#059669" />
+                                    </View>
+                                    <View style={styles.sheetActionText}>
+                                        <Text style={[styles.sheetActionTitle, { color: "#059669" }]}>Aprobar proyecto</Text>
+                                        <Text style={styles.sheetActionSub}>Publicar en el feed de la aplicación</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+
+                            <TouchableOpacity style={styles.sheetAction} onPress={onEliminar} activeOpacity={0.7}>
+                                <View style={[styles.sheetActionIcon, { backgroundColor: "#FEE2E2" }]}>
+                                    <Trash2 size={20} color="#DC2626" />
+                                </View>
+                                <View style={styles.sheetActionText}>
+                                    <Text style={[styles.sheetActionTitle, { color: "#DC2626" }]}>Eliminar proyecto</Text>
+                                    <Text style={styles.sheetActionSub}>Acción permanente e irreversible</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    <TouchableOpacity style={styles.sheetCancel} onPress={onClose} activeOpacity={0.8}>
+                        <Text style={styles.sheetCancelText}>Cancelar</Text>
+                    </TouchableOpacity>
+                </Pressable>
+            </Pressable>
+        </Modal>
     );
 }
 
@@ -53,7 +137,8 @@ export default function AdminModerarScreen() {
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState<Filter>("pendiente");
     const [search, setSearch] = useState("");
-    const [actionId, setActionId] = useState<string | null>(null);
+    const [selected, setSelected] = useState<Project | null>(null);
+    const [sheetLoading, setSheetLoading] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -75,39 +160,47 @@ export default function AdminModerarScreen() {
         return matchFilter && matchSearch;
     });
 
-    const confirmarAprobar = (p: Project) => {
+    const handleAprobar = () => {
+        if (!selected) return;
         Alert.alert(
             "Aprobar proyecto",
-            `¿Publicar "${p.nombre}" en el feed?`,
+            `¿Publicar "${selected.nombre}" en el feed?`,
             [
                 { text: "Cancelar", style: "cancel" },
                 {
                     text: "Aprobar ✓",
                     onPress: async () => {
-                        setActionId(p.id + ":apr");
-                        const r = await aprobarProyecto(p.id);
-                        setActionId(null);
-                        if (r.ok) { Alert.alert("✅ Publicado", "El proyecto ya aparece en el feed."); load(); }
-                        else Alert.alert("Error", r.error);
+                        setSheetLoading(true);
+                        const r = await aprobarProyecto(selected.id);
+                        setSheetLoading(false);
+                        if (r.ok) {
+                            setSelected(null);
+                            Alert.alert("✅ Publicado", "El proyecto ya aparece en el feed.");
+                            load();
+                        } else {
+                            Alert.alert("Error", r.error);
+                        }
                     },
                 },
             ]
         );
     };
 
-    const confirmarEliminar = (p: Project) => {
+    const handleEliminar = () => {
+        if (!selected) return;
         Alert.alert(
             "Eliminar proyecto",
-            `¿Eliminar "${p.nombre}"? Esta acción es permanente.`,
+            `¿Eliminar "${selected.nombre}"? Esta acción es permanente.`,
             [
                 { text: "Cancelar", style: "cancel" },
                 {
                     text: "Eliminar",
                     style: "destructive",
                     onPress: async () => {
-                        setActionId(p.id + ":del");
-                        const r = await eliminarProyecto(p.id);
-                        setActionId(null);
+                        setSheetLoading(true);
+                        const r = await eliminarProyecto(selected.id);
+                        setSheetLoading(false);
+                        setSelected(null);
                         if (r.ok) load();
                         else Alert.alert("Error", r.error);
                     },
@@ -116,64 +209,53 @@ export default function AdminModerarScreen() {
         );
     };
 
-    const renderItem = ({ item }: { item: Project }) => {
-        const busy = actionId === item.id + ":apr" || actionId === item.id + ":del";
-        return (
-            <TouchableOpacity
-                style={styles.card}
-                onPress={() => router.push(`/(fendadmin)/detalle/${item.id}` as any)}
-                activeOpacity={0.85}
-            >
-                {/* Cabecera */}
-                <View style={styles.cardHeader}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                        <Text style={styles.cardTitle} numberOfLines={2}>{item.nombre}</Text>
-                        <Text style={styles.cardAuthor} numberOfLines={1}>
-                            {item.autores_correos[0] || "Sin autor"}
-                        </Text>
+    const handleVerDetalle = () => {
+        if (!selected) return;
+        setSelected(null);
+        router.push(`/(fendadmin)/detalle/${selected.id}` as any);
+    };
+
+    const renderItem = ({ item }: { item: Project }) => (
+        <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push(`/(fendadmin)/detalle/${item.id}` as any)}
+            activeOpacity={0.88}
+        >
+            {/* Fila principal */}
+            <View style={styles.cardRow}>
+                {/* Indicador de color por estatus */}
+                <View style={[styles.cardAccent, { backgroundColor: ESTATUS_META[item.estatus]?.bg || "#F3F4F6" }]}>
+                    <AlertCircle size={16} color={ESTATUS_META[item.estatus]?.text || "#374151"} />
+                </View>
+
+                <View style={styles.cardInfo}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>{item.nombre}</Text>
+                    <Text style={styles.cardAuthor} numberOfLines={1}>
+                        {item.autores_correos[0] || "Sin autor"} · {new Date(item.fecha_creacion).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
+                    </Text>
+                    <View style={styles.cardFooter}>
                         <EstatusBadge estatus={item.estatus} />
-                    </View>
-                    <View style={styles.cardMeta}>
                         {item.promedio_general > 0 && (
                             <View style={styles.ratingRow}>
-                                <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                                <Text style={styles.ratingText}>{item.promedio_general.toFixed(1)}</Text>
+                                <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                                <Text style={styles.ratingText}>{item.promedio_general.toFixed(1)}%</Text>
                             </View>
                         )}
-                        <ChevronRight size={18} color={colors.mutedForeground} />
                     </View>
                 </View>
 
-                <Text style={styles.cardDesc} numberOfLines={2}>{item.descripcion}</Text>
-
-                {/* Acciones */}
-                {busy ? (
-                    <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} />
-                ) : (
-                    <View style={styles.actions}>
-                        {item.estatus === "pendiente" && (
-                            <TouchableOpacity
-                                style={styles.btnAprobar}
-                                onPress={() => confirmarAprobar(item)}
-                                activeOpacity={0.8}
-                            >
-                                <CheckCircle size={15} color="#fff" />
-                                <Text style={styles.btnAprobarText}>Aprobar</Text>
-                            </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                            style={styles.btnEliminar}
-                            onPress={() => confirmarEliminar(item)}
-                            activeOpacity={0.8}
-                        >
-                            <Trash2 size={15} color="#DC2626" />
-                            <Text style={styles.btnEliminarText}>Eliminar</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-            </TouchableOpacity>
-        );
-    };
+                {/* Botón de menú */}
+                <TouchableOpacity
+                    style={styles.menuBtn}
+                    onPress={() => setSelected(item)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    activeOpacity={0.7}
+                >
+                    <MoreVertical size={20} color={colors.mutedForeground} />
+                </TouchableOpacity>
+            </View>
+        </TouchableOpacity>
+    );
 
     return (
         <SafeAreaView style={styles.safe} edges={["bottom"]}>
@@ -201,6 +283,11 @@ export default function AdminModerarScreen() {
                     value={search}
                     onChangeText={setSearch}
                 />
+                {search.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearch("")} hitSlop={8}>
+                        <X size={16} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Filtros */}
@@ -213,8 +300,9 @@ export default function AdminModerarScreen() {
                         activeOpacity={0.8}
                     >
                         <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                            {f.charAt(0).toUpperCase() + f.slice(1)}
+                            {ESTATUS_META[f]?.label ?? f.charAt(0).toUpperCase() + f.slice(1)}
                             {f === "pendiente" && pendientesCount > 0 ? ` (${pendientesCount})` : ""}
+                            {f === "todos" ? ` (${proyectos.length})` : ""}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -230,9 +318,9 @@ export default function AdminModerarScreen() {
                 }
                 ListEmptyComponent={
                     <View style={styles.empty}>
-                        <CheckCircle size={52} color={colors.muted} />
+                        <CheckCircle size={48} color={colors.muted} />
                         <Text style={styles.emptyTitle}>
-                            {loading ? "Cargando proyectos..." : "No hay proyectos aquí"}
+                            {loading ? "Cargando proyectos..." : "Sin proyectos aquí"}
                         </Text>
                         <Text style={styles.emptySubtitle}>
                             {!loading && filter === "pendiente"
@@ -241,6 +329,17 @@ export default function AdminModerarScreen() {
                         </Text>
                     </View>
                 }
+            />
+
+            {/* Action Sheet */}
+            <ActionSheet
+                visible={!!selected}
+                project={selected}
+                onClose={() => setSelected(null)}
+                onAprobar={handleAprobar}
+                onEliminar={handleEliminar}
+                onVerDetalle={handleVerDetalle}
+                loading={sheetLoading}
             />
         </SafeAreaView>
     );
@@ -251,6 +350,7 @@ const styles = StyleSheet.create({
     headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
     headerTitle: { fontSize: 22, fontWeight: "700", color: "#FAFAFA" },
     headerSub: { fontSize: 13, color: "rgba(255,255,255,0.75)", marginTop: 2 },
+
     searchBox: {
         flexDirection: "row", alignItems: "center", gap: 10,
         margin: 16, paddingHorizontal: 14, paddingVertical: 11,
@@ -258,53 +358,102 @@ const styles = StyleSheet.create({
         borderWidth: 1, borderColor: colors.border,
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.foreground },
+
     filters: {
         flexDirection: "row", paddingHorizontal: 16,
         gap: 8, marginBottom: 10, flexWrap: "wrap",
     },
     filterChip: {
-        paddingHorizontal: 14, paddingVertical: 6,
+        paddingHorizontal: 12, paddingVertical: 6,
         borderRadius: 20, borderWidth: 1,
         borderColor: colors.border, backgroundColor: colors.card,
     },
     filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    filterText: { fontSize: 13, color: colors.mutedForeground, fontWeight: "500" },
+    filterText: { fontSize: 12, color: colors.mutedForeground, fontWeight: "500" },
     filterTextActive: { color: "#FAFAFA", fontWeight: "700" },
-    list: { padding: 16, gap: 14, paddingBottom: 32 },
+
+    list: { paddingHorizontal: 16, paddingBottom: 32, gap: 10 },
+
+    // Tarjeta de proyecto — diseño horizontal compacto
     card: {
-        backgroundColor: colors.card, borderRadius: 16,
-        padding: 16, borderWidth: 1, borderColor: colors.border,
-        gap: 10, elevation: 2,
-        shadowColor: "#000", shadowOpacity: 0.05,
+        backgroundColor: colors.card, borderRadius: 14,
+        borderWidth: 1, borderColor: colors.border,
+        overflow: "hidden",
+        elevation: 2,
+        shadowColor: "#000", shadowOpacity: 0.04,
         shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
     },
-    cardHeader: { flexDirection: "row", gap: 12 },
-    cardTitle: { fontSize: 15, fontWeight: "700", color: colors.foreground },
+    cardRow: {
+        flexDirection: "row", alignItems: "center",
+        paddingVertical: 14, paddingRight: 14, gap: 12,
+    },
+    cardAccent: {
+        width: 48, alignSelf: "stretch",
+        alignItems: "center", justifyContent: "center",
+        borderTopLeftRadius: 14, borderBottomLeftRadius: 14,
+    },
+    cardInfo: { flex: 1, gap: 4 },
+    cardTitle: { fontSize: 14, fontWeight: "700", color: colors.foreground },
     cardAuthor: { fontSize: 12, color: colors.mutedForeground },
-    cardMeta: { alignItems: "flex-end", gap: 6, justifyContent: "space-between" },
+    cardFooter: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
+    badge: { alignSelf: "flex-start", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+    badgeText: { fontSize: 11, fontWeight: "600" },
     ratingRow: {
-        flexDirection: "row", alignItems: "center", gap: 4,
-        backgroundColor: "#FEF3C7", borderRadius: 8,
-        paddingHorizontal: 8, paddingVertical: 4,
+        flexDirection: "row", alignItems: "center", gap: 3,
+        backgroundColor: "#FEF3C7", borderRadius: 6,
+        paddingHorizontal: 7, paddingVertical: 2,
     },
-    ratingText: { fontSize: 12, fontWeight: "700", color: "#92400E" },
-    cardDesc: { fontSize: 13, color: colors.mutedForeground, lineHeight: 18 },
-    badge: { alignSelf: "flex-start", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
-    badgeText: { fontSize: 12, fontWeight: "600" },
-    actions: { flexDirection: "row", gap: 10, marginTop: 4 },
-    btnAprobar: {
-        flex: 1, flexDirection: "row", alignItems: "center",
-        justifyContent: "center", gap: 6,
-        backgroundColor: "#059669", borderRadius: 10, paddingVertical: 10,
+    ratingText: { fontSize: 11, fontWeight: "700", color: "#92400E" },
+    menuBtn: {
+        width: 36, height: 36, borderRadius: 18,
+        alignItems: "center", justifyContent: "center",
+        backgroundColor: colors.muted,
     },
-    btnAprobarText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-    btnEliminar: {
-        flexDirection: "row", alignItems: "center", justifyContent: "center",
-        gap: 6, borderWidth: 1, borderColor: "#DC2626",
-        borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16,
-    },
-    btnEliminarText: { color: "#DC2626", fontWeight: "600", fontSize: 14 },
-    empty: { alignItems: "center", paddingTop: 72, gap: 12 },
+
+    empty: { alignItems: "center", paddingTop: 64, gap: 10 },
     emptyTitle: { fontSize: 16, fontWeight: "600", color: colors.mutedForeground },
-    emptySubtitle: { fontSize: 13, color: colors.muted, textAlign: "center", paddingHorizontal: 32 },
+    emptySubtitle: { fontSize: 13, color: colors.mutedForeground, textAlign: "center", paddingHorizontal: 32 },
+
+    // Action sheet
+    sheetOverlay: {
+        flex: 1, backgroundColor: "rgba(0,0,0,0.45)",
+        justifyContent: "flex-end",
+    },
+    sheetContainer: {
+        backgroundColor: colors.card,
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        paddingHorizontal: 20, paddingBottom: 32,
+        paddingTop: 10,
+    },
+    sheetHandle: {
+        width: 40, height: 4, borderRadius: 2,
+        backgroundColor: colors.border,
+        alignSelf: "center", marginBottom: 16,
+    },
+    sheetHeader: {
+        flexDirection: "row", alignItems: "flex-start",
+        gap: 12, marginBottom: 16,
+    },
+    sheetTitle: { fontSize: 16, fontWeight: "700", color: colors.foreground },
+    sheetSub: { fontSize: 13, color: colors.mutedForeground },
+    sheetDivider: { height: 1, backgroundColor: colors.border, marginBottom: 8 },
+    sheetActions: { gap: 4 },
+    sheetAction: {
+        flexDirection: "row", alignItems: "center",
+        gap: 14, paddingVertical: 14,
+        borderRadius: 12,
+    },
+    sheetActionIcon: {
+        width: 42, height: 42, borderRadius: 12,
+        alignItems: "center", justifyContent: "center",
+    },
+    sheetActionText: { flex: 1, gap: 2 },
+    sheetActionTitle: { fontSize: 15, fontWeight: "600", color: colors.foreground },
+    sheetActionSub: { fontSize: 12, color: colors.mutedForeground },
+    sheetCancel: {
+        marginTop: 8, paddingVertical: 16,
+        backgroundColor: colors.muted,
+        borderRadius: 14, alignItems: "center",
+    },
+    sheetCancelText: { fontSize: 15, fontWeight: "600", color: colors.foreground },
 });

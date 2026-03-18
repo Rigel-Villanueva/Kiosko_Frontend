@@ -1,269 +1,205 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
     ScrollView,
-    Image,
-    TouchableOpacity,
-    TextInput,
     StyleSheet,
     ActivityIndicator,
     Linking,
-    Alert,
+    TouchableOpacity,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-    ArrowLeft,
-    GraduationCap,
-    GitBranch,
-    Video,
-    FileText,
-    Presentation,
-    ExternalLink,
-    Send,
-    MessageCircle,
-    ShieldCheck,
-    ChevronDown,
-    ChevronUp,
-} from "lucide-react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ChevronLeft, Github, Image as ImageIcon, FileText, Presentation } from "lucide-react-native";
 import { useApp } from "@/context/AppContext";
-import { useAuth } from "@/context/AuthContext";
+import { Project } from "@/lib/types";
+import { VideoPlayer } from "@/components/VideoPlayer";
 
-const BLUE = "#2563EB";
-const TEXT = "#1E293B";
-const MUTED = "#64748B";
-const BORDER = "#E2E8F0";
-const WHITE = "#FFFFFF";
-const BG = "#F5F7FA";
+// DRACONIAN FLAT COLOR PALETTE
+const BG     = "#F3F4F6"; // Gray-50 background, NOT white
+const WHITE  = "#FFFFFF"; // Pure white for cards only
+const TEXT   = "#111827"; // Almost black for readability
+const MUTED  = "#6B7280"; // Gray for secondary text
+const BORDER = "#E5E7EB"; // Light gray divider, NO BLUE
+const ACCENT = "#374151"; // Dark gray for generic interactive icons instead of blue
 
-function StatusBadge({ status }: { status: string }) {
-    const map: Record<string, { bg: string; text: string; label: string }> = {
-        aprobado: { bg: "#DCFCE7", text: "#166534", label: "Aprobado" },
-        pendiente: { bg: "#FEF9C3", text: "#854D0E", label: "Pendiente" },
-        rechazado: { bg: "#FEE2E2", text: "#991B1B", label: "Rechazado" },
-        evaluado: { bg: "#EDE9FE", text: "#6B21A8", label: "Evaluado" },
-    };
-    const s = map[status] || { bg: "#F1F5F9", text: MUTED, label: status };
-    return (
-        <View style={{ backgroundColor: s.bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 12, fontWeight: "700", color: s.text }}>{s.label}</Text>
-        </View>
-    );
-}
-
-export default function DetalleEstudianteScreen() {
+export default function EstudianteProyectoDetail() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
-    const { user } = useAuth();
-    const { projects, loadProjects, addComment } = useApp();
+    const { getProject, getMisProyectos } = useApp();
 
-    const [commentText, setCommentText] = useState("");
-    const [evalExpanded, setEvalExpanded] = useState(false);
+    const [project, setProject] = useState<Project | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (projects.length === 0) loadProjects();
-    }, []);
+        let mounted = true;
+        const load = async () => {
+            try {
+                // Primero busca en memoria
+                const fromMemory = getProject(id);
+                if (fromMemory) {
+                    if (mounted) setProject(fromMemory);
+                    return;
+                }
+                // Si no, recarga desde API
+                const mis = await getMisProyectos();
+                const found = mis.find(p => p.id === id);
+                if (found && mounted) setProject(found);
+            } catch (err) {
+                console.error("Error loading project detail:", err);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+        load();
+        return () => { mounted = false; };
+    }, [id]);
 
-    const project = useMemo(() => projects.find((p) => p.id === id), [projects, id]);
+    const openUrl = (url?: string) => {
+        if (!url) return;
+        Linking.openURL(url.startsWith("http") ? url : `https://${url}`).catch(() => {});
+    };
 
-    if (!project) {
+    if (loading) {
         return (
             <SafeAreaView style={styles.safe} edges={["top"]}>
+                <View style={styles.headerFlat}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                        <ChevronLeft size={24} color={TEXT} />
+                        <Text style={styles.backText}>Atrás</Text>
+                    </TouchableOpacity>
+                </View>
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color={BLUE} />
+                    <ActivityIndicator size="large" color={MUTED} />
                 </View>
             </SafeAreaView>
         );
     }
 
-    const ev = project.evidencias;
+    if (!project) {
+        return (
+            <SafeAreaView style={styles.safe} edges={["top"]}>
+                <View style={styles.headerFlat}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                        <ChevronLeft size={24} color={TEXT} />
+                        <Text style={styles.backText}>Atrás</Text>
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.center}>
+                    <Text style={{ color: MUTED }}>Proyecto no encontrado</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
-    const handleComment = () => {
-        if (!commentText.trim() || !user) return;
-        addComment(project.id, {
-            userId: user.id,
-            userName: user.name,
-            userAvatar: user.avatar,
-            text: commentText.trim(),
-            date: new Date().toISOString().split("T")[0],
-        });
-        setCommentText("");
-    };
+    const hasEvidences = project.evidencias && (
+        project.evidencias.repositorio_git ||
+        (project.evidencias.documentos_pdf && project.evidencias.documentos_pdf.length > 0) ||
+        project.evidencias.diapositivas ||
+        (project.evidencias.imagenes && project.evidencias.imagenes.length > 0)
+    );
 
     return (
         <SafeAreaView style={styles.safe} edges={["top"]}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                {/* Hero */}
-                <View style={styles.hero}>
-                    <Image
-                        source={{ uri: project.image || `https://picsum.photos/seed/${project.id}/600/400` }}
-                        style={styles.heroImage}
-                        resizeMode="cover"
-                    />
-                    <LinearGradient colors={["transparent", "rgba(0,0,0,0.6)"]} style={StyleSheet.absoluteFill} />
-                    <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
-                        <ArrowLeft size={20} color={TEXT} />
-                    </TouchableOpacity>
-                    <View style={styles.heroBadges}>
-                        <View style={styles.categoryChip}>
-                            <Text style={styles.categoryText}>{project.category || "General"}</Text>
-                        </View>
-                        <StatusBadge status={project.estatus} />
-                    </View>
-                </View>
+            <View style={styles.headerFlat}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                    <ChevronLeft size={24} color={TEXT} />
+                    <Text style={styles.backText}>Atrás</Text>
+                </TouchableOpacity>
+            </View>
 
-                <View style={styles.body}>
-                    {/* Title + authors */}
+            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+                
+                {/* FLAT TEXT HEADER: Non-boxed title and basic info */}
+                <View style={styles.titleSection}>
+                    <Text style={styles.categoryLabel}>{(project.category || "General").toUpperCase()}</Text>
                     <Text style={styles.title}>{project.nombre}</Text>
-                    <Text style={styles.author}>por {project.authorName}</Text>
-                    <View style={styles.correosRow}>
-                        {project.autores_correos.map((c, i) => (
-                            <View key={i} style={styles.correoPill}>
-                                <Text style={styles.correoText}>{c}</Text>
-                            </View>
-                        ))}
-                    </View>
-
-                    {/* Score */}
-                    {project.promedio_general > 0 && (
-                        <View style={styles.scoreCard}>
-                            <GraduationCap size={20} color={BLUE} />
-                            <Text style={styles.scoreLabel}>Promedio Docente</Text>
-                            <Text style={styles.scoreValue}>{project.promedio_general}%</Text>
-                        </View>
-                    )}
-
-                    {/* Description */}
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Descripción</Text>
-                        <Text style={styles.description}>{project.descripcion}</Text>
-                    </View>
-
-                    {/* Evidencias */}
-                    {(ev?.repositorio_git || ev?.videos?.length > 0 || ev?.imagenes?.length > 0 || ev?.documentos_pdf?.length > 0 || ev?.diapositivas) && (
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Evidencias del Proyecto</Text>
-                            {ev?.repositorio_git ? (
-                                <TouchableOpacity onPress={() => Linking.openURL(ev.repositorio_git)} style={styles.evidRow}>
-                                    <GitBranch size={16} color={MUTED} />
-                                    <Text style={styles.evidLabel}>Repositorio Git</Text>
-                                    <ExternalLink size={14} color={BLUE} />
-                                </TouchableOpacity>
-                            ) : null}
-                            {ev?.videos?.length > 0 && ev.videos.map((v, i) => (
-                                <TouchableOpacity key={i} onPress={() => Linking.openURL(v.url)} style={styles.evidRow}>
-                                    <Video size={16} color={MUTED} />
-                                    <Text style={styles.evidLabel}>{v.titulo}</Text>
-                                    <ExternalLink size={14} color={BLUE} />
-                                </TouchableOpacity>
-                            ))}
-                            {ev?.imagenes?.length > 0 && (
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                    {ev.imagenes.map((uri, i) => (
-                                        <Image key={i} source={{ uri }} style={styles.evidImg} resizeMode="cover" />
-                                    ))}
-                                </ScrollView>
-                            )}
-                            {ev?.documentos_pdf?.length > 0 && ev.documentos_pdf.map((d, i) => (
-                                <View key={i} style={styles.docChip}>
-                                    <FileText size={14} color={BLUE} />
-                                    <Text style={styles.docText} numberOfLines={1}>{d}</Text>
-                                </View>
-                            ))}
-                            {ev?.diapositivas ? (
-                                <TouchableOpacity onPress={() => Linking.openURL(ev.diapositivas)} style={styles.evidRow}>
-                                    <Presentation size={16} color={MUTED} />
-                                    <Text style={[styles.evidLabel, { color: BLUE }]}>Ver presentación</Text>
-                                    <ExternalLink size={14} color={BLUE} />
-                                </TouchableOpacity>
-                            ) : null}
-                        </View>
-                    )}
-
-                    {/* Teacher evaluations (read-only) */}
-                    {project.evaluaciones_docentes?.length > 0 && (
-                        <View style={styles.card}>
-                            <TouchableOpacity
-                                onPress={() => setEvalExpanded(!evalExpanded)}
-                                style={styles.evalHeaderRow}
-                                activeOpacity={0.8}
-                            >
-                                <View style={styles.evidRow}>
-                                    <ShieldCheck size={18} color={BLUE} />
-                                    <Text style={styles.cardTitle}>
-                                        Evaluaciones ({project.evaluaciones_docentes.length})
-                                    </Text>
-                                </View>
-                                {evalExpanded ? (
-                                    <ChevronUp size={18} color={MUTED} />
-                                ) : (
-                                    <ChevronDown size={18} color={MUTED} />
-                                )}
-                            </TouchableOpacity>
-                            {evalExpanded &&
-                                project.evaluaciones_docentes.map((e, i) => (
-                                    <View key={i} style={styles.evalCard}>
-                                        <View style={styles.evalTop}>
-                                            <Text style={styles.evalTeacher}>{e.nombre_maestro}</Text>
-                                            <View style={styles.evalBadge}>
-                                                <Text style={styles.evalBadgeText}>{e.promedio_por_maestro}%</Text>
-                                            </View>
-                                        </View>
-                                        <Text style={styles.evalDate}>{e.fecha_evaluacion}</Text>
-                                        <Text style={styles.retroText}>{e.retroalimentacion_final}</Text>
-                                    </View>
-                                ))}
-                        </View>
-                    )}
-
-                    {/* Comments */}
-                    <View style={styles.section}>
-                        <View style={styles.evidRow}>
-                            <MessageCircle size={18} color={MUTED} />
-                            <Text style={styles.sectionTitle}>
-                                Comentarios ({project.comments?.length || 0})
-                            </Text>
-                        </View>
-                        <View style={styles.commentRow}>
-                            <TextInput
-                                style={styles.commentInput}
-                                placeholder="Escribe un comentario..."
-                                placeholderTextColor={MUTED}
-                                value={commentText}
-                                onChangeText={setCommentText}
-                                onSubmitEditing={handleComment}
-                                returnKeyType="send"
-                            />
-                            <TouchableOpacity
-                                style={[styles.sendBtn, !commentText.trim() && { opacity: 0.5 }]}
-                                onPress={handleComment}
-                                disabled={!commentText.trim()}
-                                activeOpacity={0.85}
-                            >
-                                <Send size={16} color={WHITE} />
-                            </TouchableOpacity>
-                        </View>
-                        {(!project.comments || project.comments.length === 0) && (
-                            <Text style={styles.emptyComments}>No hay comentarios todavía.</Text>
-                        )}
-                        {project.comments?.map((c, i) => (
-                            <View key={c.id || i} style={styles.commentCard}>
-                                <View style={styles.commentHeader}>
-                                    <View style={styles.commentAvatar}>
-                                        <Text style={styles.commentAvatarText}>
-                                            {c.userName?.charAt(0).toUpperCase()}
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.commentUser}>{c.userName}</Text>
-                                    <Text style={styles.commentDate}>{c.date}</Text>
-                                </View>
-                                <Text style={styles.commentText}>{c.text}</Text>
-                            </View>
-                        ))}
-                    </View>
+                    <Text style={styles.dateText}>
+                        Añadido: {new Date(project.fecha_creacion).toLocaleDateString("es-MX", { month: "long", day: "numeric", year: "numeric" })}
+                    </Text>
                 </View>
+
+                {/* DESCRIPTION: Flat white block full width */}
+                {!!project.descripcion && (
+                    <View style={styles.flatBlock}>
+                        <Text style={styles.sectionHeading}>Descripción</Text>
+                        <Text style={styles.descriptionText}>{project.descripcion}</Text>
+                    </View>
+                )}
+
+                {/* EVIDENCES: Minimalist list of links */}
+                {hasEvidences && (
+                    <View style={styles.flatBlock}>
+                        <Text style={styles.sectionHeading}>Evidencias</Text>
+                        
+                        {!!project.evidencias.repositorio_git && (
+                            <TouchableOpacity style={styles.rowLink} onPress={() => openUrl(project.evidencias.repositorio_git)}>
+                                <Github size={20} color={ACCENT} />
+                                <Text style={styles.rowLinkText} numberOfLines={1}>Repositorio (GitHub/GitLab)</Text>
+                            </TouchableOpacity>
+                        )}
+                        
+                        {!!project.evidencias.diapositivas && (
+                            <TouchableOpacity style={styles.rowLink} onPress={() => openUrl(project.evidencias.diapositivas)}>
+                                <Presentation size={20} color={ACCENT} />
+                                <Text style={styles.rowLinkText} numberOfLines={1}>Presentación / Diapositivas</Text>
+                            </TouchableOpacity>
+                        )}
+                        
+                        {project.evidencias.documentos_pdf?.map((url, i) => (
+                            <TouchableOpacity key={`pdf-${i}`} style={styles.rowLink} onPress={() => openUrl(url)}>
+                                <FileText size={20} color={ACCENT} />
+                                <Text style={styles.rowLinkText} numberOfLines={1}>Documento PDF {i + 1}</Text>
+                            </TouchableOpacity>
+                        ))}
+                        
+                        {project.evidencias.imagenes?.map((url, i) => (
+                            <TouchableOpacity key={`img-${i}`} style={styles.rowLink} onPress={() => openUrl(url)}>
+                                <ImageIcon size={20} color={ACCENT} />
+                                <Text style={styles.rowLinkText} numberOfLines={1}>Imagen de Evidencia {i + 1}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+
+                {/* VIDEOS */}
+                {project.evidencias?.videos && project.evidencias.videos.length > 0 && (
+                    <View style={[styles.flatBlock, { paddingBottom: 0, borderBottomWidth: 0 }]}>
+                        <Text style={styles.sectionHeading}>Videos Multimedia</Text>
+                        {project.evidencias.videos.map((vid, idx) => (
+                            <View key={`vid-${idx}`} style={{ marginBottom: 20 }}>
+                                <Text style={styles.videoTitle}>{vid.titulo || `Video ${idx + 1}`}</Text>
+                                <View style={styles.videoWrapper}>
+                                    <VideoPlayer url={vid.url} />
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                {/* EVALUATIONS: STRICTLY DEMOLISHED FORMER ACCORDION */}
+                {project.evaluaciones_docentes && project.evaluaciones_docentes.length > 0 && (
+                    <View style={styles.flatBlock}>
+                        <Text style={styles.sectionHeading}>Evaluación Docente</Text>
+                        {project.evaluaciones_docentes.map((ev, i) => (
+                            <View key={`ev-${i}`} style={styles.evaluationItem}>
+                                <Text style={styles.evaluatorName}>{ev.nombre_maestro || "Docente Evaluador"}</Text>
+                                <Text style={styles.evalScore}>Calificación: <Text style={{fontWeight: "700"}}>{ev.promedio_por_maestro}/100</Text></Text>
+                                <Text style={styles.evalDate}>
+                                    Fecha: {new Date(ev.fecha_evaluacion || Date.now()).toLocaleDateString("es-MX")}
+                                </Text>
+                                
+                                {!!ev.retroalimentacion_final && (
+                                    <View style={styles.feedbackBox}>
+                                        <Text style={styles.feedbackLabel}>Comentarios del docente:</Text>
+                                        <Text style={styles.feedbackText}>{ev.retroalimentacion_final}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        ))}
+                    </View>
+                )}
+
             </ScrollView>
         </SafeAreaView>
     );
@@ -272,88 +208,148 @@ export default function DetalleEstudianteScreen() {
 const styles = StyleSheet.create({
     safe: { flex: 1, backgroundColor: BG },
     center: { flex: 1, alignItems: "center", justifyContent: "center" },
-    hero: { height: 224, position: "relative" },
-    heroImage: { width: "100%", height: "100%" },
+    
+    // Flat Header (no massive layouts)
+    headerFlat: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: WHITE,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: BORDER,
+    },
     backBtn: {
-        position: "absolute", top: 48, left: 16,
-        width: 36, height: 36, borderRadius: 18,
-        backgroundColor: "rgba(255,255,255,0.9)",
-        alignItems: "center", justifyContent: "center",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
     },
-    heroBadges: {
-        position: "absolute", bottom: 16, left: 20, right: 20,
-        flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end",
+    backText: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: TEXT,
     },
-    categoryChip: {
-        backgroundColor: BLUE, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+
+    scrollContainer: {
+        paddingBottom: 60,
     },
-    categoryText: { fontSize: 12, fontWeight: "600", color: WHITE },
-    body: { padding: 20, gap: 16 },
-    title: { fontSize: 22, fontWeight: "800", color: TEXT },
-    author: { fontSize: 14, color: MUTED },
-    correosRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-    correoPill: {
-        backgroundColor: "#EFF6FF", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+
+    // Title Section Flat
+    titleSection: {
+        padding: 24,
+        paddingBottom: 16,
     },
-    correoText: { fontSize: 12, color: BLUE },
-    scoreCard: {
-        flexDirection: "row", alignItems: "center", gap: 10,
-        backgroundColor: WHITE, borderRadius: 14, padding: 14,
-        borderWidth: 1, borderColor: BORDER,
+    categoryLabel: {
+        fontSize: 12,
+        fontWeight: "800",
+        letterSpacing: 1,
+        color: MUTED,
+        marginBottom: 8,
     },
-    scoreLabel: { flex: 1, fontSize: 14, color: MUTED },
-    scoreValue: { fontSize: 20, fontWeight: "800", color: BLUE },
-    section: { gap: 8 },
-    sectionTitle: { fontSize: 16, fontWeight: "700", color: TEXT },
-    description: { fontSize: 14, color: MUTED, lineHeight: 22 },
-    card: {
-        backgroundColor: WHITE, borderRadius: 16,
-        borderWidth: 1, borderColor: BORDER,
-        padding: 16, gap: 10,
+    title: {
+        fontSize: 26,
+        fontWeight: "800",
+        color: TEXT,
+        lineHeight: 32,
+        marginBottom: 8,
     },
-    cardTitle: { fontSize: 15, fontWeight: "700", color: TEXT },
-    evidRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    evidLabel: { flex: 1, fontSize: 13, color: TEXT },
-    evidImg: { width: 100, height: 76, borderRadius: 8, marginRight: 8 },
-    docChip: {
-        flexDirection: "row", alignItems: "center", gap: 8,
-        backgroundColor: "#EFF6FF", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    dateText: {
+        fontSize: 13,
+        color: MUTED,
     },
-    docText: { flex: 1, fontSize: 13, color: TEXT },
-    evalHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    evalCard: {
-        borderWidth: 1, borderColor: BORDER, borderRadius: 12,
-        padding: 12, gap: 4, marginTop: 8,
+
+    // Flat Block representing sections (NO enclosed heavy cards with big padding)
+    flatBlock: {
+        backgroundColor: WHITE,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: BORDER,
+        paddingHorizontal: 20,
+        paddingVertical: 24,
+        marginBottom: 16,
     },
-    evalTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    evalTeacher: { fontSize: 14, fontWeight: "600", color: TEXT },
-    evalBadge: { backgroundColor: BLUE, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-    evalBadgeText: { fontSize: 12, fontWeight: "700", color: WHITE },
-    evalDate: { fontSize: 11, color: MUTED },
-    retroText: { fontSize: 12, color: MUTED, marginTop: 4 },
-    commentRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    commentInput: {
-        flex: 1, borderWidth: 1, borderColor: BORDER,
-        backgroundColor: WHITE, borderRadius: 12,
-        paddingHorizontal: 14, paddingVertical: 10,
-        fontSize: 14, color: TEXT,
+    sectionHeading: {
+        fontSize: 16,
+        fontWeight: "800",
+        color: TEXT,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        marginBottom: 16,
     },
-    sendBtn: {
-        width: 40, height: 40, borderRadius: 12,
-        backgroundColor: BLUE, alignItems: "center", justifyContent: "center",
+    descriptionText: {
+        fontSize: 15,
+        lineHeight: 24,
+        color: "#374151",
     },
-    emptyComments: { fontSize: 13, color: MUTED, textAlign: "center", marginTop: 8 },
-    commentCard: {
-        backgroundColor: WHITE, borderWidth: 1, borderColor: BORDER,
-        borderRadius: 12, padding: 12, gap: 6, marginTop: 8,
+
+    // Row links (Thin dividers instead of expanding borders)
+    rowLink: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: BORDER,
+        gap: 12,
     },
-    commentHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-    commentAvatar: {
-        width: 28, height: 28, borderRadius: 14,
-        backgroundColor: `${BLUE}20`, alignItems: "center", justifyContent: "center",
+    rowLinkText: {
+        fontSize: 15,
+        color: TEXT,
+        fontWeight: "500",
+        flex: 1,
     },
-    commentAvatarText: { fontSize: 11, fontWeight: "700", color: BLUE },
-    commentUser: { flex: 1, fontSize: 13, fontWeight: "600", color: TEXT },
-    commentDate: { fontSize: 11, color: MUTED },
-    commentText: { fontSize: 13, color: MUTED },
+
+    // Video 
+    videoTitle: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: MUTED,
+        marginBottom: 8,
+    },
+    videoWrapper: {
+        width: "100%",
+        aspectRatio: 16 / 9,
+        backgroundColor: "#000",
+        borderRadius: 8,
+        overflow: "hidden",
+    },
+
+    // Evaluation 
+    evaluationItem: {
+        paddingVertical: 12,
+    },
+    evaluatorName: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: TEXT,
+        marginBottom: 4,
+    },
+    evalScore: {
+        fontSize: 14,
+        color: TEXT,
+        marginBottom: 2,
+    },
+    evalDate: {
+        fontSize: 12,
+        color: MUTED,
+        marginBottom: 12,
+    },
+    feedbackBox: {
+        backgroundColor: BG,
+        padding: 14,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: BORDER,
+    },
+    feedbackLabel: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: TEXT,
+        marginBottom: 6,
+    },
+    feedbackText: {
+        fontSize: 14,
+        color: "#4B5563",
+        lineHeight: 20,
+        fontStyle: "italic",
+    },
 });

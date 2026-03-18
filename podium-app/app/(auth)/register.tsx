@@ -29,6 +29,7 @@ export default function RegisterScreen() {
     const [showPass, setShowPass] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleRegister = async () => {
@@ -45,7 +46,8 @@ export default function RegisterScreen() {
         const result = await register(name.trim(), email.trim(), password, role);
         setLoading(false);
         if (result.ok) {
-            router.replace("/(app)/feed");
+            setSuccess("✅ Cuenta creada exitosamente. Ahora inicia sesión.");
+            setTimeout(() => router.replace("/(auth)/login"), 1800);
         } else {
             setError(result.error || "No se pudo crear la cuenta. Intenta con otro correo.");
         }
@@ -171,6 +173,7 @@ export default function RegisterScreen() {
                                 </TouchableOpacity>
                             </View>
 
+                            {success ? <Text style={styles.success}>{success}</Text> : null}
                             {error ? <Text style={styles.error}>{error}</Text> : null}
 
                             <TouchableOpacity
@@ -237,6 +240,7 @@ const styles = StyleSheet.create({
     },
     icon: { marginRight: 10 },
     input: { flex: 1, fontSize: 14, color: colors.foreground },
+    success: { fontSize: 13, color: "#16A34A", fontWeight: "600" },
     error: { fontSize: 13, color: colors.destructive },
     btn: {
         backgroundColor: colors.primary,

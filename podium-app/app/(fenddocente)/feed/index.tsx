@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
     View,
     Text,
@@ -9,6 +9,10 @@ import {
     StyleSheet,
     ActivityIndicator,
     TouchableOpacity,
+    Animated,
+    LayoutAnimation,
+    Platform,
+    UIManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -20,14 +24,37 @@ import { useApp } from "@/context/AppContext";
 import { colors } from "@/constants/colors";
 import { Project } from "@/lib/types";
 
+const BG    = "#F3F4F6";
+const WHITE = "#FFFFFF";
+const BLUE  = "#2563EB";
+
+// Removed UIManager Layout animation since it crashes natively on Android
+
 export default function FeedScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const { projects, isLoading, loadProjects, searchQuery, setSearchQuery } = useApp();
     const [refreshing, setRefreshing] = useState(false);
 
+    // Simple timeout for the welcome banner
+    const [showWelcome, setShowWelcome] = useState(true);
+    const welcomeOpacity = useRef(new Animated.Value(1)).current;
+
     useEffect(() => {
         loadProjects();
+    }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            Animated.timing(welcomeOpacity, {
+                toValue: 0,
+                duration: 700,
+                useNativeDriver: true,
+            }).start(() => {
+                setShowWelcome(false);
+            });
+        }, 3000);
+        return () => clearTimeout(timer);
     }, []);
 
     const onRefresh = async () => {
@@ -53,15 +80,22 @@ export default function FeedScreen() {
     );
 
     const firstName = user?.name?.split(" ")[0] || "Usuario";
-    const initial = user?.name?.charAt(0).toUpperCase() || "U";
+    const initial   = user?.name?.charAt(0).toUpperCase() || "U";
 
     const header = (
         <View>
             <GradientHeader>
                 <View style={styles.headerRow}>
-                    <View>
-                        <Text style={styles.welcome}>Bienvenido/a</Text>
-                        <Text style={styles.userName}>{firstName}</Text>
+                    <View style={{ flex: 1 }}>
+                        {/* Welcome animated — visible solo 3s */}
+                        {showWelcome ? (
+                            <Animated.View style={{ opacity: welcomeOpacity }}>
+                                <Text style={styles.welcome}>Bienvenido/a,</Text>
+                                <Text style={styles.userName}>{firstName}</Text>
+                            </Animated.View>
+                        ) : (
+                            <Text style={styles.userName}>Proyectos</Text>
+                        )}
                     </View>
                     <View style={styles.avatar}>
                         <Text style={styles.avatarText}>{initial}</Text>
@@ -70,9 +104,9 @@ export default function FeedScreen() {
             </GradientHeader>
 
             <View style={styles.content}>
-                {/* Search */}
+                {/* Search — blanco sobre fondo gris = profundidad */}
                 <View style={styles.searchWrap}>
-                    <Search size={18} color={colors.mutedForeground} />
+                    <Search size={18} color={BLUE} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Buscar proyectos..."
@@ -87,7 +121,7 @@ export default function FeedScreen() {
                 {!searchQuery.trim() && featured.length > 0 && (
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Sparkles size={20} color={colors.accent} />
+                            <Sparkles size={18} color={colors.accent} />
                             <Text style={styles.sectionTitle}>Destacados</Text>
                         </View>
                         <ScrollView
@@ -107,7 +141,6 @@ export default function FeedScreen() {
                     </View>
                 )}
 
-                {/* Label */}
                 <Text style={styles.sectionTitle}>
                     {searchQuery.trim() ? "Resultados" : "Recientes"}
                 </Text>
@@ -154,35 +187,34 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.background },
+    safe: { flex: 1, backgroundColor: BG },
     headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    welcome: { fontSize: 13, color: "rgba(250,250,250,0.8)" },
-    userName: { fontSize: 24, fontWeight: "700", color: "#FAFAFA" },
+    welcome:  { fontSize: 13, color: "rgba(250,250,250,0.8)", marginBottom: 2 },
+    userName: { fontSize: 22, fontWeight: "700", color: "#FAFAFA" },
     avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 40, height: 40, borderRadius: 20,
         backgroundColor: "rgba(255,255,255,0.2)",
-        alignItems: "center",
-        justifyContent: "center",
+        alignItems: "center", justifyContent: "center",
     },
-    avatarText: { fontSize: 14, fontWeight: "700", color: "#FAFAFA" },
-    content: { paddingHorizontal: 20, paddingTop: 24, gap: 20 },
+    avatarText: { fontSize: 15, fontWeight: "700", color: "#FAFAFA" },
+    content: { paddingHorizontal: 20, paddingTop: 20, gap: 18 },
     searchWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        backgroundColor: colors.card,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: colors.border,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        flexDirection: "row", alignItems: "center", gap: 10,
+        backgroundColor: WHITE,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: `${BLUE}30`,
+        paddingHorizontal: 14, paddingVertical: 12,
+        elevation: 2,
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.foreground },
     section: { gap: 12 },
     sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-    sectionTitle: { fontSize: 18, fontWeight: "700", color: colors.foreground },
+    sectionTitle: { fontSize: 16, fontWeight: "700", color: colors.foreground },
     list: { paddingHorizontal: 20, paddingBottom: 100, gap: 0 },
     center: { flex: 1, alignItems: "center", justifyContent: "center" },
     empty: { alignItems: "center", paddingTop: 40 },

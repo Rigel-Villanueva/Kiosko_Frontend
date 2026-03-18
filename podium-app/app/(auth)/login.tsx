@@ -38,7 +38,7 @@ export default function LoginScreen() {
         const result = await login(email.trim(), password);
         setLoading(false);
         if (result.ok) {
-            router.replace("/(app)/feed");
+            router.replace("/");
         } else {
             setError(result.error || "Credenciales incorrectas. Intenta de nuevo.");
         }

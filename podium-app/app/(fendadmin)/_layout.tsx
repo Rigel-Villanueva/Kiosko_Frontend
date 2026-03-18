@@ -45,7 +45,7 @@ export default function FendAdminLayout() {
                 }}
             />
             {/* Rutas ocultas del tab bar */}
-            <Tabs.Screen name="detalle/[id]" options={{ href: null }} />
+            <Tabs.Screen name="detalle" options={{ href: null }} />
         </Tabs>
     );
 }

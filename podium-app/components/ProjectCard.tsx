@@ -9,6 +9,7 @@ import {
 import { GraduationCap, Users } from "lucide-react-native";
 import { Project } from "@/lib/types";
 import { colors } from "@/constants/colors";
+import { VideoThumb } from "@/components/VideoThumb";
 
 interface Props {
     project: Project;
@@ -19,10 +20,6 @@ export function ProjectCard({ project, onPress }: Props) {
     const promedioLabel =
         project.promedio_general > 0 ? `${project.promedio_general}%` : "Pendiente";
 
-    const imageUri =
-        project.image ||
-        `https://picsum.photos/seed/${project.id}/400/300`;
-
     return (
         <TouchableOpacity
             activeOpacity={0.95}
@@ -30,7 +27,12 @@ export function ProjectCard({ project, onPress }: Props) {
             style={styles.container}
         >
             <View style={styles.imageContainer}>
-                <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+                <VideoThumb
+                    project={project}
+                    style={styles.image}
+                    fallbackUri={`https://picsum.photos/seed/${project.id}/400/300`}
+                    playIconSize={18}
+                />
                 <View style={styles.categoryChip}>
                     <Text style={styles.categoryText}>{project.category || "General"}</Text>
                 </View>
@@ -76,6 +78,11 @@ const styles = StyleSheet.create({
     image: {
         width: "100%",
         height: 160,
+    },
+    ytPlayOverlay: { position: "absolute", bottom: 10, right: 10 },
+    ytPlayBtn: {
+        width: 36, height: 36, borderRadius: 18,
+        backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center",
     },
     categoryChip: {
         position: "absolute",

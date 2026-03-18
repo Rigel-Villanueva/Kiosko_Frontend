@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
     View,
     Text,
@@ -10,6 +10,10 @@ import {
     Image,
     StatusBar,
     RefreshControl,
+    Animated,
+    LayoutAnimation,
+    Platform,
+    UIManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -17,12 +21,13 @@ import { Search, Bell, Star } from "lucide-react-native";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { Project } from "@/lib/types";
+import { VideoThumb } from "@/components/VideoThumb";
 
-const BG = "#F5F7FA";
-const WHITE = "#FFFFFF";
-const BLUE = "#2563EB";
-const TEXT = "#1E293B";
-const MUTED = "#64748B";
+const BG     = "#F3F4F6";
+const WHITE  = "#FFFFFF";
+const BLUE   = "#2563EB";
+const TEXT   = "#1E293B";
+const MUTED  = "#64748B";
 const BORDER = "#E2E8F0";
 
 function getCategoryColor(cat: string): string {
@@ -54,10 +59,11 @@ function FeaturedCard({ project, onPress }: { project: Project; onPress: () => v
     const catColor = getCategoryColor(project.category || "General");
     return (
         <TouchableOpacity style={styles.featuredCard} onPress={onPress} activeOpacity={0.88}>
-            <Image
-                source={{ uri: project.image || `https://picsum.photos/seed/${project.id}/300/200` }}
+            <VideoThumb
+                project={project}
                 style={styles.featuredImg}
-                resizeMode="cover"
+                fallbackUri={`https://picsum.photos/seed/${project.id}/300/200`}
+                playIconSize={16}
             />
             {project.promedio_general > 0 && (
                 <View style={styles.starBadge}>
@@ -86,23 +92,30 @@ function FeaturedCard({ project, onPress }: { project: Project; onPress: () => v
 function RecentItem({ project, onPress }: { project: Project; onPress: () => void }) {
     const catColor = getCategoryColor(project.category || "General");
     return (
-        <TouchableOpacity style={styles.recentItem} onPress={onPress} activeOpacity={0.88}>
-            <Image
-                source={{ uri: project.image || `https://picsum.photos/seed/${project.id}/150/150` }}
-                style={styles.recentThumb}
-                resizeMode="cover"
+        <TouchableOpacity style={styles.recentItem} onPress={onPress} activeOpacity={0.9}>
+            <VideoThumb
+                project={project}
+                style={styles.recentThumbWrap}
+                fallbackUri={`https://picsum.photos/seed/${project.id}/400/220`}
+                playIconSize={24}
             />
-            <View style={styles.recentInfo}>
+            <View style={styles.recentBody}>
                 <View style={[styles.catPill, { backgroundColor: `${catColor}18`, alignSelf: "flex-start" }]}>
                     <Text style={[styles.catText, { color: catColor }]}>
                         {(project.category || "GENERAL").toUpperCase()}
                     </Text>
                 </View>
                 <Text style={styles.recentTitle} numberOfLines={2}>{project.nombre}</Text>
+                {!!project.descripcion && (
+                    <Text style={styles.recentDesc} numberOfLines={2}>{project.descripcion}</Text>
+                )}
                 <View style={styles.recentMeta}>
                     <Text style={styles.byAuthor}>by {project.authorName}</Text>
                     <Text style={styles.timeText}>{timeAgo(project.fecha_creacion)}</Text>
                 </View>
+                <TouchableOpacity style={styles.viewBtn} onPress={onPress} activeOpacity={0.85}>
+                    <Text style={styles.viewBtnText}>Ver Proyecto</Text>
+                </TouchableOpacity>
             </View>
         </TouchableOpacity>
     );
@@ -114,6 +127,23 @@ export default function FeedEstudianteScreen() {
     const { projects, isLoading, loadProjects, searchQuery, setSearchQuery } = useApp();
     const [refreshing, setRefreshing] = useState(false);
     const [visibleCount, setVisibleCount] = useState(10);
+
+    // Simple timeout for the welcome banner to avoid LayoutAnimation crashes
+    const [showWelcome, setShowWelcome] = useState(true);
+    const welcomeOpacity = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            Animated.timing(welcomeOpacity, {
+                toValue: 0,
+                duration: 700,
+                useNativeDriver: true,
+            }).start(() => {
+                setShowWelcome(false);
+            });
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => { loadProjects(); }, []);
 
@@ -146,15 +176,12 @@ export default function FeedEstudianteScreen() {
 
     return (
         <SafeAreaView style={styles.safe} edges={["top"]}>
-            <StatusBar barStyle="dark-content" backgroundColor={WHITE} />
+            <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
-            {/* Fixed header */}
+            {/* Fixed header redesign */}
             <View style={styles.header}>
-                <View style={styles.avatarSmall}>
-                    <Text style={styles.avatarSmallText}>{initial}</Text>
-                </View>
-                <Text style={styles.headerTitle}>Podium</Text>
-                <TouchableOpacity style={styles.bellWrap}>
+                <Text style={styles.headerBrandLabel}>Podium</Text>
+                <TouchableOpacity style={styles.bellWrap} activeOpacity={0.7}>
                     <Bell size={22} color={TEXT} />
                 </TouchableOpacity>
             </View>
@@ -166,11 +193,13 @@ export default function FeedEstudianteScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BLUE} />
                 }
             >
-                {/* Welcome */}
-                <View style={styles.welcomeSection}>
-                    <Text style={styles.welcomeText}>Welcome, {firstName}!</Text>
-                    <Text style={styles.welcomeSub}>Ready to discover amazing student work?</Text>
-                </View>
+                {/* Welcome banner — animated, auto-hide after 3s */}
+                {showWelcome && (
+                    <Animated.View style={[styles.welcomeSection, { opacity: welcomeOpacity }]}>
+                        <Text style={styles.welcomeText}>¡Hola, {firstName}!</Text>
+                        <Text style={styles.welcomeSub}>Descubre los proyectos de tus compañeros</Text>
+                    </Animated.View>
+                )}
 
                 {/* Search */}
                 <View style={styles.searchWrap}>
@@ -249,33 +278,36 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: BORDER,
     },
-    avatarSmall: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: `${BLUE}20`,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    avatarSmallText: { fontSize: 14, fontWeight: "700", color: BLUE },
-    headerTitle: { fontSize: 17, fontWeight: "700", color: TEXT },
+    headerBrandLabel: { fontSize: 22, fontWeight: "900", color: TEXT, letterSpacing: -0.5 },
     bellWrap: { padding: 4 },
-    scrollContent: { paddingBottom: 100, gap: 0 },
-    welcomeSection: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4, gap: 4 },
-    welcomeText: { fontSize: 26, fontWeight: "800", color: TEXT },
-    welcomeSub: { fontSize: 14, color: MUTED },
+    scrollContent: { paddingBottom: 110, gap: 0 },
+
+    /* Welcome banner */
+    welcomeSection: {
+        paddingHorizontal: 20, paddingTop: 18, paddingBottom: 6,
+        backgroundColor: BLUE,
+        marginBottom: 4,
+        gap: 3,
+    },
+    welcomeText: { fontSize: 22, fontWeight: "800", color: WHITE },
+    welcomeSub: { fontSize: 13, color: "rgba(255,255,255,0.82)" },
     searchWrap: {
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
         backgroundColor: WHITE,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: BORDER,
+        borderRadius: 14,
+        borderWidth: 1.5,
+        borderColor: `${BLUE}30`,
         paddingHorizontal: 14,
         paddingVertical: 12,
         marginHorizontal: 20,
-        marginTop: 16,
+        marginTop: 14,
+        elevation: 2,
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
     },
     searchInput: { flex: 1, fontSize: 14, color: TEXT },
     section: { paddingHorizontal: 20, marginTop: 24, gap: 12 },
@@ -323,27 +355,34 @@ const styles = StyleSheet.create({
     },
     authorDotText: { fontSize: 9, fontWeight: "700", color: MUTED },
     authorName: { fontSize: 12, color: MUTED, flex: 1 },
-    // Recent
+    // Recent — tarjeta vertical
     recentItem: {
-        flexDirection: "row",
-        gap: 14,
-        alignItems: "flex-start",
         backgroundColor: WHITE,
-        borderRadius: 14,
-        padding: 14,
+        borderRadius: 16,
+        overflow: "hidden",
         borderWidth: 1,
         borderColor: BORDER,
-        elevation: 1,
+        elevation: 3,
         shadowColor: "#000",
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
+        shadowOpacity: 0.07,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
     },
-    recentThumb: { width: 72, height: 72, borderRadius: 10 },
-    recentInfo: { flex: 1, gap: 5 },
-    recentTitle: { fontSize: 14, fontWeight: "700", color: TEXT, lineHeight: 20 },
+    recentThumbWrap: { width: "100%", height: 190, overflow: "hidden" },
+    recentBody: { padding: 14, gap: 8 },
+    recentTitle: { fontSize: 17, fontWeight: "700", color: TEXT, lineHeight: 23 },
+    recentDesc: { fontSize: 13, color: MUTED, lineHeight: 18 },
     recentMeta: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     byAuthor: { fontSize: 12, color: MUTED },
     timeText: { fontSize: 11, color: MUTED },
+    viewBtn: {
+        backgroundColor: BLUE,
+        borderRadius: 10,
+        paddingVertical: 13,
+        alignItems: "center",
+        marginTop: 2,
+    },
+    viewBtnText: { fontSize: 14, fontWeight: "700", color: WHITE },
     loadMore: { alignItems: "center", paddingVertical: 18 },
     loadMoreText: { fontSize: 14, fontWeight: "600", color: BLUE },
     emptyText: { textAlign: "center", color: MUTED, paddingTop: 32, fontSize: 14 },

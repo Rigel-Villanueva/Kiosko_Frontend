@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system/legacy";
 import { Project, Comment, EvaluacionDocente } from "@/lib/types";
 
 export const API_URL = "https://kiosko-api.onrender.com/api";
@@ -10,6 +11,22 @@ async function getHeaders(): Promise<HeadersInit> {
     const headers: HeadersInit = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;
+}
+
+/** 
+ * Wraps fetch to prevent hanging requests causing startup freezes.
+ * Automatically aborts the request and throws an error after `timeoutMs` (defaults to 10s).
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 10000): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal as any });
+        return response;
+    } finally {
+        clearTimeout(id);
+    }
 }
 
 /**
@@ -116,13 +133,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsLoading(true);
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Proyectos`, { headers });
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos`, { headers, method: "GET" });
             if (res.ok) {
                 const data = await res.json();
                 setProjects(Array.isArray(data) ? data.map(mapProject) : []);
             }
         } catch (e) {
-            console.error("loadProjects error:", e);
+            console.error("loadProjects error or timeout:", e);
         } finally {
             setIsLoading(false);
         }
@@ -135,7 +152,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const getMisProyectos = async (): Promise<Project[]> => {
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Proyectos/mis-proyectos`, { headers });
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos/mis-proyectos`, { headers, method: "GET" });
             if (res.ok) {
                 const data = await res.json();
                 return Array.isArray(data) ? data.map(mapProject) : [];
@@ -168,7 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     Diapositivas: data.evidencias?.diapositivas,
                 },
             };
-            const res = await fetch(`${API_URL}/Proyectos`, {
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify(body),
@@ -203,7 +220,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     Diapositivas: data.evidencias?.diapositivas,
                 },
             };
-            const res = await fetch(`${API_URL}/Proyectos/${id}`, {
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos/${id}`, {
                 method: "PUT",
                 headers,
                 body: JSON.stringify(body),
@@ -247,7 +264,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 })),
                 RetroalimentacionFinal: evaluation.retroalimentacion_final,
             };
-            const res = await fetch(`${API_URL}/Proyectos/${projectId}/evaluar`, {
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos/${projectId}/evaluar`, {
                 method: "PUT",
                 headers,
                 body: JSON.stringify(body),
@@ -265,7 +282,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     /**
      * POST /api/Uploads (Solo rol "estudiante")
-     * multipart/form-data con el archivo → devuelve { url }
+     * Sube un archivo usando FileSystem.uploadAsync que maneja content:// URIs de Android.
+     *
+     * Notas de diagnóstico:
+     *  - Render (free tier) tiene timeout de ~30s. Videos >15MB probablemente lo superen.
+     *  - Si result.status === 0 y result.body está vacío → timeout de red.
+     *  - El campo MULTIPART lleva `parameters` con el filename para que ASP.NET Core
+     *    lo reconozca correctamente en IFormFile.
      */
     const uploadFile = async (
         fileUri: string,
@@ -273,24 +296,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
         mimeType: string
     ): Promise<string> => {
         const token = await AsyncStorage.getItem(TOKEN_KEY);
-        const formData = new FormData();
-        formData.append("requestFile", {
-            uri: fileUri,
-            name: fileName,
-            type: mimeType,
-        } as any);
 
-        const res = await fetch(`${API_URL}/Uploads`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                // NO ponemos Content-Type aquí – fetch lo pone solo con boundary
+        const result = await FileSystem.uploadAsync(`${API_URL}/Uploads`, fileUri, {
+            httpMethod: "POST",
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: "requestFile",
+            mimeType: mimeType,
+            parameters: {
+                // Algunos servidores ASP.NET necesitan el filename en parameters
+                // para que IFormFile.FileName no quede vacío.
+                filename: fileName,
             },
-            body: formData,
+            headers: {
+                Authorization: `Bearer ${token ?? ""}`,
+            },
         });
 
-        if (!res.ok) throw new Error(`Upload failed: HTTP ${res.status}`);
-        const data = await res.json();
+        // Log detallado para debugging (visible en `npx expo start` / Metro logs)
+        console.log(
+            `[uploadFile] status=${result.status} mimeType=${mimeType} fileName=${fileName}`
+        );
+        if (result.status < 200 || result.status >= 300) {
+            const bodySnippet = result.body
+                ? result.body.slice(0, 300)
+                : "(sin respuesta — posible timeout de red o Render free-tier)";
+            const errMsg =
+                result.status === 0
+                    ? `Sin respuesta del servidor. El archivo puede ser demasiado grande para el servidor (límite Render free-tier ~30s). Intenta con un archivo más pequeño.`
+                    : `Error HTTP ${result.status}: ${bodySnippet}`;
+            console.error(`[uploadFile] FAILED — ${errMsg}`);
+            throw new Error(errMsg);
+        }
+
+        const data = JSON.parse(result.body);
         return data.url as string;
     };
     // ── FUNCIONES ADMIN ──────────────────────────────────────────────────
@@ -299,7 +337,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const getAllProyectos = async (): Promise<Project[]> => {
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Proyectos/todos`, { headers });
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos/todos`, { headers, method: "GET" });
             if (res.ok) {
                 const data = await res.json();
                 return Array.isArray(data) ? data.map(mapProject) : [];
@@ -312,7 +350,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const aprobarProyecto = async (id: string): Promise<{ ok: boolean; error?: string }> => {
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Proyectos/${id}/aprobar`, {
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos/${id}/aprobar`, {
                 method: "PUT",
                 headers,
             });
@@ -328,7 +366,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const eliminarProyecto = async (id: string): Promise<{ ok: boolean; error?: string }> => {
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Proyectos/${id}`, {
+            const res = await fetchWithTimeout(`${API_URL}/Proyectos/${id}`, {
                 method: "DELETE",
                 headers,
             });
@@ -344,7 +382,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const getAllUsuarios = async (): Promise<any[]> => {
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Usuarios`, { headers });
+            const res = await fetchWithTimeout(`${API_URL}/Usuarios`, { headers, method: "GET" });
             if (res.ok) return await res.json();
         } catch { }
         return [];
@@ -354,7 +392,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const verificarMaestro = async (id: string): Promise<{ ok: boolean; error?: string }> => {
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Usuarios/${id}/verificar`, {
+            const res = await fetchWithTimeout(`${API_URL}/Usuarios/${id}/verificar`, {
                 method: "PUT",
                 headers,
             });
@@ -370,7 +408,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const eliminarUsuario = async (id: string): Promise<{ ok: boolean; error?: string }> => {
         try {
             const headers = await getHeaders();
-            const res = await fetch(`${API_URL}/Usuarios/${id}`, {
+            const res = await fetchWithTimeout(`${API_URL}/Usuarios/${id}`, {
                 method: "DELETE",
                 headers,
             });

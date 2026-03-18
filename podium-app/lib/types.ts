@@ -66,9 +66,9 @@ export interface Project {
 }
 
 export const DEFAULT_RUBRICA: { criterio: string; puntos_max: number }[] = [
-    { criterio: "Modelado NoSQL", puntos_max: 25 },
-    { criterio: "Arquitectura API", puntos_max: 25 },
-    { criterio: "Interfaz UX", puntos_max: 20 },
-    { criterio: "Control de Git", puntos_max: 15 },
-    { criterio: "Multimedia", puntos_max: 15 },
+    { criterio: "Comunicación y Claridad", puntos_max: 20 },
+    { criterio: "Trabajo en Equipo", puntos_max: 20 },
+    { criterio: "Resolución de Problemas", puntos_max: 20 },
+    { criterio: "Innovación y Creatividad", puntos_max: 20 },
+    { criterio: "Viabilidad e Impacto", puntos_max: 20 },
 ];

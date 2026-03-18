@@ -236,7 +236,7 @@ export default function AdminHomeScreen() {
                         {stats.pendientes > 0 && (
                             <TouchableOpacity
                                 style={styles.alertCard}
-                                onPress={() => router.push("/(app)/admin" as any)}
+                                onPress={() => router.push("/(fendadmin)/moderar" as any)}
                                 activeOpacity={0.85}
                             >
                                 <View style={styles.alertIconWrap}>
@@ -283,7 +283,7 @@ export default function AdminHomeScreen() {
                         <FolderOpen size={18} color={colors.primary} />
                         <Text style={styles.sectionTitle}>Proyectos recientes</Text>
                         <TouchableOpacity
-                            onPress={() => router.push("/(app)/admin" as any)}
+                            onPress={() => router.push("/(fendadmin)/moderar" as any)}
                             style={styles.seeAll}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
@@ -341,7 +341,7 @@ export default function AdminHomeScreen() {
                     <View style={styles.quickRow}>
                         <TouchableOpacity
                             style={styles.quickBtn}
-                            onPress={() => router.push("/(app)/admin" as any)}
+                            onPress={() => router.push("/(fendadmin)/moderar" as any)}
                             activeOpacity={0.85}
                         >
                             <LinearGradient

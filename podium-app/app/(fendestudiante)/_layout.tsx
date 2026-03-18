@@ -1,56 +1,113 @@
 import React from "react";
-import { Tabs } from "expo-router";
-import { View, StyleSheet } from "react-native";
+import { Tabs, useRouter } from "expo-router";
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    StyleSheet,
+    Platform,
+} from "react-native";
+import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Home, FolderOpen, Plus, User } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const BLUE = "#2563EB";
-const MUTED = "#94A3B8";
+const BLUE   = "#2563EB";
+const MUTED  = "#94A3B8";
+const WHITE  = "#FFFFFF";
+const BORDER = "#E2E8F0";
+
+const TAB_ICONS: Record<string, (color: string) => React.ReactNode> = {
+    "feed/index":    (c) => <Home      size={22} color={c} />,
+    "mis-proyectos": (c) => <FolderOpen size={22} color={c} />,
+    "perfil":        (c) => <User      size={22} color={c} />,
+};
+
+const TAB_LABELS: Record<string, string> = {
+    "feed/index":    "Inicio",
+    "mis-proyectos": "Proyectos",
+    "perfil":        "Perfil",
+};
+
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+    const insets = useSafeAreaInsets();
+    const router = useRouter();
+
+    const visibleRoutes = state.routes.filter(
+        (r) => r.name !== "crear" && r.name !== "feed/[id]"
+    );
+
+    const currentRouteName = state.routes[state.index]?.name;
+    const isOnHome = currentRouteName === "feed/index";
+
+    /* Bottom padding: always at least 12px, plus safe-area inset */
+    const bottomPad = Math.max(insets.bottom, 0) + 12;
+
+    return (
+        <View>
+            {/* Tab bar — NO fixed height; let paddingTop + content + paddingBottom flex it */}
+            <View style={[styles.tabBar, { paddingBottom: bottomPad }]}>
+                {visibleRoutes.map((route) => {
+                    const isFocused = state.routes[state.index].name === route.name;
+                    const color = isFocused ? BLUE : MUTED;
+                    const label = TAB_LABELS[route.name] ?? route.name;
+
+                    const onPress = () => {
+                        const event = navigation.emit({
+                            type: "tabPress",
+                            target: route.key,
+                            canPreventDefault: true,
+                        });
+                        if (!isFocused && !event.defaultPrevented) {
+                            navigation.navigate(route.name);
+                        }
+                    };
+
+                    return (
+                        <TouchableOpacity
+                            key={route.key}
+                            onPress={onPress}
+                            activeOpacity={0.7}
+                            style={styles.tabItem}
+                            accessibilityRole="button"
+                            accessibilityLabel={label}
+                        >
+                            {TAB_ICONS[route.name]?.(color)}
+                            <Text style={[styles.tabLabel, { color, fontWeight: isFocused ? "700" : "400" }]}>
+                                {label}
+                            </Text>
+                            {/* Small active dot under label */}
+                            {isFocused && <View style={styles.activeDot} />}
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+
+            {/* FAB — only on Home tab */}
+            {isOnHome && (
+                <TouchableOpacity
+                    style={[styles.fab, { bottom: bottomPad + 62 }]}
+                    onPress={() => router.push("/(fendestudiante)/crear" as any)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Crear nuevo proyecto"
+                >
+                    <Plus size={28} color={WHITE} strokeWidth={2.5} />
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+}
 
 export default function FendEstudianteLayout() {
     return (
         <Tabs
-            screenOptions={{
-                headerShown: false,
-                tabBarStyle: styles.tabBar,
-                tabBarActiveTintColor: BLUE,
-                tabBarInactiveTintColor: MUTED,
-                tabBarLabelStyle: styles.tabLabel,
-                tabBarItemStyle: styles.tabItem,
-            }}
+            tabBar={(props) => <CustomTabBar {...props} />}
+            screenOptions={{ headerShown: false }}
         >
-            <Tabs.Screen
-                name="feed/index"
-                options={{
-                    title: "Feed",
-                    tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
-                }}
-            />
-            <Tabs.Screen
-                name="mis-proyectos"
-                options={{
-                    title: "Proyectos",
-                    tabBarIcon: ({ color, size }) => <FolderOpen size={size} color={color} />,
-                }}
-            />
-            <Tabs.Screen
-                name="crear"
-                options={{
-                    title: "",
-                    tabBarIcon: () => (
-                        <View style={styles.fab}>
-                            <Plus size={26} color="#fff" />
-                        </View>
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="perfil"
-                options={{
-                    title: "Perfil",
-                    tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
-                }}
-            />
-            {/* Rutas ocultas del tab bar */}
+            <Tabs.Screen name="feed/index" />
+            <Tabs.Screen name="mis-proyectos" />
+            <Tabs.Screen name="perfil" />
+            <Tabs.Screen name="crear"     options={{ href: null }} />
             <Tabs.Screen name="feed/[id]" options={{ href: null }} />
         </Tabs>
     );
@@ -58,32 +115,42 @@ export default function FendEstudianteLayout() {
 
 const styles = StyleSheet.create({
     tabBar: {
-        backgroundColor: "#FFFFFF",
+        flexDirection: "row",
+        backgroundColor: WHITE,
         borderTopWidth: 1,
-        borderTopColor: "#E2E8F0",
-        paddingBottom: 20,
-        paddingTop: 8,
-        height: 72,
-        elevation: 8,
+        borderTopColor: BORDER,
+        paddingTop: 10,        /* no height — content + padding defines height */
+        elevation: 10,
         shadowColor: "#000",
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
         shadowOffset: { width: 0, height: -2 },
     },
-    tabLabel: { fontSize: 11, fontWeight: "500" },
-    tabItem: { paddingTop: 4 },
+    tabItem: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 3,
+        paddingBottom: 2,
+    },
+    tabLabel: { fontSize: 11 },
+    activeDot: {
+        width: 4, height: 4, borderRadius: 2,
+        backgroundColor: BLUE,
+        marginTop: 2,
+    },
     fab: {
-        width: 54,
-        height: 54,
-        borderRadius: 27,
+        position: "absolute",
+        right: 20,
+        width: 56, height: 56,
+        borderRadius: 28,
         backgroundColor: BLUE,
         alignItems: "center",
         justifyContent: "center",
-        marginBottom: 22,
-        elevation: 6,
+        elevation: 8,
         shadowColor: BLUE,
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.45,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 6 },
     },
 });
